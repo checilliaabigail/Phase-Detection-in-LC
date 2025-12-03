@@ -1,1 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BPLC Phase Analysis</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
 
+<body>
+
+  <h1>🔬 BPLC Phase Analyzer</h1>
+  <p>Unggah video untuk mendeteksi fase isotropik, transisi, dan kolesterik</p>
+
+  <div class="upload-box">
+    <p>Pilih video (.mp4 atau .avi)</p>
+    <input type="file" id="videoInput" accept="video/*" />
+    <p id="fileInfo"></p>
+
+    <video id="videoPreview" controls></video>
+
+    <div id="loading">
+      <p>⏳ Menganalisis video... Harap tunggu</p>
+    </div>
+  </div>
+
+  <button id="analyzeBtn" disabled>Mulai Analisis</button>
+
+  <div id="results">
+    <h2>📈 Hasil Analisis</h2>
+    <div id="resultContent"></div>
+    <button id="downloadBtn" style="display:none;">Download CSV</button>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
