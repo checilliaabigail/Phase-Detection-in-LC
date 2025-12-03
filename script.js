@@ -1,83 +1,97 @@
-let uploadedImage = null;
+let video = document.getElementById("video");
+let processBtn = document.getElementById("processBtn");
+let canvas = document.getElementById("canvas");
+let resultsDiv = document.getElementById("results");
+let exportData = [];
 
-document.getElementById("fileInput").addEventListener("change", function (event) {
-    const file = event.target.files[0];
-    document.getElementById("analyzeBtn").disabled = false;
+const crop = { x:100, y:100, w:1500, h:200 }; // sama seperti Python
 
-    const preview = document.getElementById("filePreview");
-    preview.src = URL.createObjectURL(file);
-    preview.style.display = "block";
-
-    uploadedImage = file;
+document.getElementById("videoFile").addEventListener("change", (e) => {
+    let file = e.target.files[0];
+    video.src = URL.createObjectURL(file);
+    processBtn.disabled = false;
 });
 
+processBtn.addEventListener("click", async () => {
+    exportData = [];
+    const fps = 1; // Ambil 1 frame per detik (dapat diubah seperti Python)
 
-document.getElementById("analyzeBtn").addEventListener("click", async function () {
-    if (!uploadedImage) return;
+    canvas.width = crop.w;
+    canvas.height = crop.h;
 
-    document.getElementById("loading").style.display = "block";
+    await video.play();
+    video.pause();
+    
+    const duration = Math.floor(video.duration);
 
-    const img = document.getElementById("filePreview");
-    await new Promise(r => setTimeout(r, 500)); // delay to load canvas
+    for (let t = 0; t < duration; t++) {
+        video.currentTime = t;
+        await new Promise(r => setTimeout(r, 80));
 
-    let src = cv.imread(img);
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(video, crop.x, crop.y, crop.w, crop.h, 0, 0, crop.w, crop.h);
 
-    // --- CROP AREA (sesuai Python mu) ---
-    let cropRect = new cv.Rect(100, 100, 1500, 200);
-    let cropped = src.roi(cropRect);
+        let src = cv.imread(canvas);
+        let gray = new cv.Mat();
+        cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
 
-    // --- GRAYSCALE ---
-    let gray = new cv.Mat();
-    cv.cvtColor(cropped, gray, cv.COLOR_RGBA2GRAY);
+        let equalized = new cv.Mat();
+        cv.equalizeHist(gray, equalized);
 
-    // --- HISTOGRAM EQUALIZATION ---
-    let equalized = new cv.Mat();
-    cv.equalizeHist(gray, equalized);
+        let thresh = new cv.Mat();
+        cv.adaptiveThreshold(equalized, thresh, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C,
+                             cv.THRESH_BINARY_INV, 11, 2);
 
-    // --- NORMALIZATION ---
-    let norm = new cv.Mat();
-    cv.normalize(equalized, norm, 0, 255, cv.NORM_MINMAX);
+        let contours = new cv.MatVector();
+        let hierarchy = new cv.Mat();
+        cv.findContours(thresh, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
 
-    // --- ADAPTIVE THRESHOLD ---
-    let thresh = new cv.Mat();
-    cv.adaptiveThreshold(norm, thresh, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 11, 2);
+        let validContours = 0;
 
-    // --- FIND CONTOURS ---
-    let contours = new cv.MatVector();
-    let hierarchy = new cv.Mat();
-    cv.findContours(thresh, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+        for (let i = 0; i < contours.size(); i++) {
+            let c = contours.get(i);
+            let area = cv.contourArea(c);
+            let peri = cv.arcLength(c, true);
 
-    let validContours = 0;
+            if (area < 30 || area > 500 || peri === 0) continue;
 
-    for (let i = 0; i < contours.size(); i++){
-        let cnt = contours.get(i);
-        let area = cv.contourArea(cnt);
-        let perimeter = cv.arcLength(cnt, true);
+            let circ = 4 * Math.PI * area / (peri * peri);
 
-        if (area < 30 || area > 500 || perimeter === 0) continue;
-
-        let circularity = 4 * Math.PI * area / (perimeter * perimeter);
-
-        if (circularity > 0.2 && circularity < 1.2){
-            validContours++;
+            if (circ > 0.2 && circ < 1.2) validContours++;
         }
+
+        let phase = classify(validContours, t);
+
+        exportData.push({
+            time_sec: t,
+            valid_contours: validContours,
+            phase: phase
+        });
+
+        src.delete(); gray.delete(); equalized.delete();
+        thresh.delete(); contours.delete(); hierarchy.delete();
     }
 
-    // --- CLASSIFICATION (same rules as Python) ---
-    let detectedPhase = "";
-    if (validContours > 25) detectedPhase = "cholesteric";
-    else if (validContours >= 20) detectedPhase = "transition";
-    else detectedPhase = "isotropic";
+    resultsDiv.style.display = "block";
+    document.getElementById("status").innerHTML = "✔ Analisis selesai!";
+});
 
-    document.getElementById("loading").style.display = "none";
+// ================= CLASSIFIER =================
+function classify(contours, time){
+    if (time < 22 * 60) return "cholesteric";
+    if (contours > 25) return "cholesteric";
+    if (contours >= 20) return "transition";
+    return "isotropic";
+}
 
-    document.getElementById("results").style.display = "block";
-    document.getElementById("resultContent").innerHTML = `
-        <div class='result-item'>🔍 Kontur Valid: <b>${validContours}</b></div>
-        <div class='result-item'>📌 Fase Terdeteksi: <b>${detectedPhase.toUpperCase()}</b></div>
-    `;
+// ================= EXPORT CSV =================
+document.getElementById("downloadBtn").addEventListener("click", () => {
+    let csv = "time_sec,valid_contours,phase\n";
+    exportData.forEach(r => csv += `${r.time_sec},${r.valid_contours},${r.phase}\n`);
 
-    // cleanup
-    src.delete(); cropped.delete(); gray.delete(); equalized.delete(); norm.delete();
-    thresh.delete(); contours.delete(); hierarchy.delete();
+    let blob = new Blob([csv], { type: "text/csv" });
+    let a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "hasil_bplc.csv";
+    a.click();
 });
