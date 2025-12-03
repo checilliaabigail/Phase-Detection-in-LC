@@ -1,1 +1,64 @@
+body {
+  font-family: Arial, sans-serif;
+  background: #eef2f3;
+  text-align: center;
+  padding: 40px;
+}
 
+.upload-box {
+  margin: 20px auto;
+  padding: 25px;
+  width: 400px;
+  background: white;
+  border-radius: 10px;
+  border: 2px dashed #999;
+}
+
+#videoPreview {
+  margin-top: 20px;
+  width: 100%;
+  display: none;
+  border-radius: 10px;
+}
+
+#loading {
+  display: none;
+  margin: 20px 0;
+}
+
+#results {
+  display: none;
+  margin: 25px auto;
+  max-width: 500px;
+  padding: 20px;
+  background: white;
+  border-radius: 10px;
+}
+
+button {
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 16px;
+  cursor: pointer;
+  margin-top: 15px;
+}
+
+button:hover {
+  background: #0056b3;
+}
+
+button:disabled {
+  background: #7d8c9b;
+  cursor: not-allowed;
+}
+
+.result-item {
+  margin: 10px 0;
+  padding: 10px;
+  background: #f9f9f9;
+  border-left: 4px solid #007bff;
+  border-radius: 5px;
+}
