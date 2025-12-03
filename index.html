@@ -3,37 +3,39 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BPLC Phase Analysis</title>
-  <link rel="stylesheet" href="style.css" />
-</head>
+  <title>BPLC Phase Detection</title>
 
+  <style>
+    body { font-family: Arial; background: #eef2f3; padding: 20px; text-align: center; }
+    .box { background: white; padding: 20px; width: 400px; margin: auto; border-radius: 10px; }
+    canvas { max-width: 100%; margin-top: 10px; border: 1px solid #aaa; }
+    button { margin: 15px; padding: 10px 20px; border-radius: 6px; background: #007bff; color: white; cursor: pointer; }
+    #results { margin-top: 20px; display: none; }
+  </style>
+</head>
 <body>
 
-  <h1>🔬 BPLC Phase Analyzer</h1>
-  <p>Unggah video untuk mendeteksi fase isotropik, transisi, dan kolesterik</p>
+<h1>🔬 BPLC Phase Detection</h1>
+<p>Upload video untuk analisis fase kolesterik → isotropik</p>
 
-  <div class="upload-box">
-    <p>Pilih video (.mp4 atau .avi)</p>
-    <input type="file" id="videoInput" accept="video/*" />
-    <p id="fileInfo"></p>
+<div class="box">
+  <input type="file" id="videoFile" accept="video/*" />
+  <br><br>
+  <button id="processBtn" disabled>Mulai Analisis</button>
+</div>
 
-    <video id="videoPreview" controls></video>
+<video id="video" style="display:none;"></video>
+<canvas id="canvas"></canvas>
 
-    <div id="loading">
-      <p>⏳ Menganalisis video... Harap tunggu</p>
-    </div>
-  </div>
+<div id="results">
+  <h2>📈 Hasil Analisis</h2>
+  <p id="status"></p>
+  <button id="downloadBtn">Download CSV</button>
+</div>
 
-  <button id="analyzeBtn" disabled>Mulai Analisis</button>
+<script src="https://docs.opencv.org/4.x/opencv.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="script.js"></script>
 
-  <div id="results">
-    <h2>📈 Hasil Analisis</h2>
-    <div id="resultContent"></div>
-    <button id="downloadBtn" style="display:none;">Download CSV</button>
-  </div>
-
-  <script src="script.js"></script>
-  <script async src="https://docs.opencv.org/4.x/opencv.js"></script>
-  <script src="script.js"></script>
 </body>
 </html>
