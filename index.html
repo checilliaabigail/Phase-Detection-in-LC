@@ -1,503 +1,495 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Liquid Crystal Phase Detection</title>
+// script.js - Liquid Crystal Phase Detection (Debug Version)
 
-  <style>
-    body { 
-      font-family: Arial, sans-serif; 
-      background: #f5f7fa; 
-      padding: 20px; 
-      text-align: center; 
-      margin: 0;
-    }
-    
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-      background: white;
-      padding: 30px;
-      border-radius: 15px;
-      box-shadow: 0 5px 20px rgba(0,0,0,0.1);
-    }
-    
-    h1 {
-      color: #2c3e50;
-      margin-bottom: 10px;
-    }
-    
-    .subtitle {
-      color: #7f8c8d;
-      margin-bottom: 30px;
-      font-size: 1.1em;
-    }
-    
-    .upload-section {
-      background: #f8f9fa;
-      padding: 25px;
-      border-radius: 10px;
-      margin-bottom: 30px;
-      border: 2px dashed #007bff;
-    }
-    
-    input[type="file"] {
-      padding: 12px;
-      border: 2px solid #007bff;
-      border-radius: 6px;
-      width: 80%;
-      margin-bottom: 15px;
-      background: white;
-      cursor: pointer;
-    }
-    
-    button {
-      margin: 15px;
-      padding: 12px 25px;
-      border-radius: 8px;
-      border: none;
-      font-weight: bold;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      font-size: 16px;
-    }
-    
-    #processBtn {
-      background: linear-gradient(135deg, #007bff, #0056b3);
-      color: white;
-      box-shadow: 0 4px 10px rgba(0,123,255,0.3);
-    }
-    
-    #processBtn:hover {
-      background: linear-gradient(135deg, #0056b3, #004494);
-      transform: translateY(-2px);
-      box-shadow: 0 6px 15px rgba(0,123,255,0.4);
-    }
-    
-    #processBtn:disabled {
-      background: #cccccc;
-      cursor: not-allowed;
-      transform: none;
-      box-shadow: none;
-    }
-    
-    #downloadBtn {
-      background: linear-gradient(135deg, #28a745, #1e7e34);
-      color: white;
-      box-shadow: 0 4px 10px rgba(40,167,69,0.3);
-    }
-    
-    #downloadBtn:hover {
-      background: linear-gradient(135deg, #1e7e34, #155724);
-      transform: translateY(-2px);
-    }
-    
-    #status {
-      margin-top: 15px;
-      padding: 12px;
-      border-radius: 6px;
-      background: #e8f4fd;
-      color: #0056b3;
-      font-weight: bold;
-      display: inline-block;
-    }
-    
-    .video-preview {
-      margin: 25px 0;
-      padding: 20px;
-      background: #f8f9fa;
-      border-radius: 10px;
-    }
-    
-    video {
-      max-width: 90%;
-      border-radius: 8px;
-      border: 3px solid #e9ecef;
-      margin-top: 15px;
-    }
-    
-    canvas {
-      display: none;
-    }
-    
-    #results {
-      margin-top: 30px;
-      padding: 25px;
-      background: #f8f9fa;
-      border-radius: 10px;
-      text-align: left;
-      border-left: 5px solid #007bff;
-    }
-    
-    .frame-result {
-      background: white;
-      padding: 20px;
-      border-radius: 8px;
-      margin: 15px 0;
-      box-shadow: 0 3px 10px rgba(0,0,0,0.08);
-    }
-    
-    .frame-images {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 20px;
-      margin: 20px 0;
-    }
-    
-    .image-container {
-      text-align: center;
-      background: #f1f3f4;
-      padding: 15px;
-      border-radius: 8px;
-      flex: 1;
-      min-width: 200px;
-    }
-    
-    .image-container h4 {
-      margin: 0 0 10px 0;
-      color: #495057;
-    }
-    
-    .image-container canvas {
-      display: block;
-      max-width: 100%;
-      border: 1px solid #ddd;
-      border-radius: 5px;
-      background: white;
-    }
-    
-    .summary-section {
-      background: white;
-      padding: 20px;
-      border-radius: 8px;
-      margin: 20px 0;
-    }
-    
-    .summary-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 15px;
-    }
-    
-    .summary-table th,
-    .summary-table td {
-      padding: 12px;
-      border: 1px solid #dee2e6;
-      text-align: center;
-    }
-    
-    .summary-table th {
-      background: #007bff;
-      color: white;
-    }
-    
-    .summary-table tr:nth-child(even) {
-      background: #f8f9fa;
-    }
-    
-    .methodology {
-      margin: 40px 0;
-      padding: 25px;
-      background: linear-gradient(135deg, #f8f9fa, #e9ecef);
-      border-radius: 10px;
-    }
-    
-    .workflow {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 20px;
-      margin-top: 20px;
-    }
-    
-    .step {
-      background: white;
-      padding: 20px;
-      border-radius: 10px;
-      flex: 1;
-      min-width: 180px;
-      text-align: center;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-      transition: transform 0.3s ease;
-    }
-    
-    .step:hover {
-      transform: translateY(-5px);
-    }
-    
-    .step-number {
-      display: inline-block;
-      width: 40px;
-      height: 40px;
-      line-height: 40px;
-      background: #007bff;
-      color: white;
-      border-radius: 50%;
-      font-weight: bold;
-      margin-bottom: 15px;
-    }
-    
-    .step h4 {
-      color: #2c3e50;
-      margin: 10px 0;
-    }
-    
-    .step p {
-      color: #7f8c8d;
-      font-size: 0.9em;
-      margin: 8px 0;
-    }
-    
-    .step code {
-      display: inline-block;
-      background: #e9ecef;
-      padding: 4px 8px;
-      border-radius: 4px;
-      font-family: monospace;
-      font-size: 0.85em;
-      color: #495057;
-      margin-top: 8px;
-    }
-    
-    .code-preview {
-      margin: 40px 0;
-      padding: 25px;
-      background: #f8f9fa;
-      border-radius: 10px;
-    }
-    
-    .code-tabs {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 20px;
-    }
-    
-    .tab-btn {
-      padding: 10px 20px;
-      background: #e9ecef;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      font-weight: bold;
-      color: #495057;
-    }
-    
-    .tab-btn.active {
-      background: #007bff;
-      color: white;
-    }
-    
-    .code-container {
-      background: #282c34;
-      border-radius: 8px;
-      padding: 20px;
-      text-align: left;
-    }
-    
-    pre {
-      margin: 0;
-      color: #abb2bf;
-      font-family: 'Courier New', monospace;
-      font-size: 14px;
-      line-height: 1.5;
-    }
-    
-    code {
-      color: #abb2bf;
-    }
-    
-    .hidden {
-      display: none;
-    }
-    
-    @media (max-width: 768px) {
-      .container {
-        padding: 15px;
-      }
-      
-      .workflow {
-        flex-direction: column;
-      }
-      
-      .frame-images {
-        flex-direction: column;
-      }
-      
-      .step {
-        min-width: 100%;
-      }
-    }
-  </style>
-</head>
-<body>
+let video = document.getElementById("video");
+let processBtn = document.getElementById("processBtn");
+let canvas = document.getElementById("canvas");
+let previewDiv = document.getElementById("preview");
+let resultsDiv = document.getElementById("results");
+let exportData = [];
+let isProcessing = false;
 
-<div class="container">
-  <h1>🔬 Liquid Crystal Phase Detection</h1>
-  <p class="subtitle">Isotropic vs Cholesteric Phase Classification Based on Contour Analysis</p>
+// Phase colors
+const phaseColors = {
+    'ISOTROPIC': '#2196F3',
+    'CHOLESTERIC': '#F44336'
+};
 
-  <div class="upload-section">
-    <h2>📁 Upload Video</h2>
-    <input type="file" id="videoFile" accept="video/*" />
-    <br>
-    <button id="processBtn" disabled>Process Video</button>
-    <p id="status">Loading OpenCV.js...</p>
-  </div>
-
-  <div class="video-preview">
-    <h2>🎬 Video Preview</h2>
-    <video id="video" controls></video>
-    <canvas id="canvas"></canvas>
-  </div>
-
-  <div id="preview" class="frame-result">
-    <!-- Frame analysis results will be displayed here -->
-  </div>
-
-  <div id="results" style="display: none;">
-    <div class="summary-section" id="summary">
-      <!-- Summary table will be inserted here -->
-    </div>
+// Update status
+function updateStatus(message, type = 'info') {
+    const statusEl = document.getElementById("status");
+    statusEl.textContent = message;
     
-    <div style="text-align: center; margin: 30px 0;">
-      <h3>📊 Export Results</h3>
-      <button id="downloadBtn">Download CSV</button>
-    </div>
-  </div>
-
-  <div class="methodology">
-    <h2>⚙️ Methodology</h2>
-    <div class="workflow">
-      <div class="step">
-        <div class="step-number">1</div>
-        <h4>Mask Creation</h4>
-        <p>Detect and mask electrode areas</p>
-        <code>create_electrode_mask()</code>
-      </div>
-      <div class="step">
-        <div class="step-number">2</div>
-        <h4>Preprocessing</h4>
-        <p>Gaussian blur, denoising, histogram equalization</p>
-        <code>preprocess()</code>
-      </div>
-      <div class="step">
-        <div class="step-number">3</div>
-        <h4>Thresholding</h4>
-        <p>Adaptive threshold for segmentation</p>
-        <code>adaptiveThreshold()</code>
-      </div>
-      <div class="step">
-        <div class="step-number">4</div>
-        <h4>Contour Detection</h4>
-        <p>Find and filter valid contours</p>
-        <code>findContours()</code>
-      </div>
-      <div class="step">
-        <div class="step-number">5</div>
-        <h4>Classification</h4>
-        <p>Contour = 0 → Isotropic<br>Contour > 0 → Cholesteric</p>
-        <code>classify_phase()</code>
-      </div>
-    </div>
-  </div>
-
-  <div class="code-preview">
-    <h2>💻 Code Implementation</h2>
-    <div class="code-tabs">
-      <button class="tab-btn active" onclick="showCode('python')">Python</button>
-      <button class="tab-btn" onclick="showCode('javascript')">JavaScript</button>
-      <button class="tab-btn" onclick="showCode('classification')">Classification</button>
-    </div>
-    <div class="code-container">
-      <div id="python-code">
-        <pre><code># Python Implementation
-def detect_and_classify(frame, mask):
-    # Preprocessing
-    processed, thresholded = preprocess(frame, mask)
-    
-    # Find contours
-    contours, _ = cv.findContours(thresholded, 
-                                   cv2.RETR_EXTERNAL, 
-                                   cv2.CHAIN_APPROX_SIMPLE)
-    
-    # Count valid contours
-    valid_contours = 0
-    for c in contours:
-        area = cv.contourArea(c)
-        if 50 <= area <= 1000:
-            perimeter = cv.arcLength(c, True)
-            if perimeter > 0:
-                circularity = 4 * np.pi * area / (perimeter * perimeter)
-                if 0.3 <= circularity <= 1.0:
-                    valid_contours += 1
-    
-    # Simple classification
-    if valid_contours == 0:
-        return "ISOTROPIC", valid_contours
-    else:
-        return "CHOLESTERIC", valid_contours</code></pre>
-      </div>
-      
-      <div id="javascript-code" class="hidden">
-        <pre><code>// JavaScript Implementation
-function classifyPhase(contourCount) {
-    if (contourCount === 0) {
-        return "ISOTROPIC";
+    // Color coding
+    if (type === 'error') {
+        statusEl.style.background = '#fde8e8';
+        statusEl.style.color = '#d32f2f';
+    } else if (type === 'success') {
+        statusEl.style.background = '#e8f5e9';
+        statusEl.style.color = '#2e7d32';
+    } else if (type === 'warning') {
+        statusEl.style.background = '#fff3e0';
+        statusEl.style.color = '#f57c00';
     } else {
-        return "CHOLESTERIC";
+        statusEl.style.background = '#e3f2fd';
+        statusEl.style.color = '#1976d2';
     }
 }
 
-function processSingleFrame(canvasElement, frameName, timestamp) {
-    // Read image and convert to grayscale
-    let src = cv.imread(canvasElement);
-    let gray = new cv.Mat();
-    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+// Initialize OpenCV
+cv['onRuntimeInitialized'] = () => {
+    console.log("✅ OpenCV.js loaded successfully");
+    updateStatus("✅ OpenCV.js ready. Select video and click Process.", 'success');
+    processBtn.disabled = false;
     
-    // Create mask and apply preprocessing
-    let mask = createElectrodeMask(gray);
-    let processed = preprocessImage(src, mask);
+    // Also check if cv object is available
+    if (typeof cv === 'undefined') {
+        updateStatus("❌ OpenCV.js not loaded properly", 'error');
+        processBtn.disabled = true;
+    }
+};
+
+// File selection
+document.getElementById("videoFile").addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    if (file) {
+        // Check file type
+        if (!file.type.startsWith('video/')) {
+            updateStatus("❌ Please select a video file", 'error');
+            return;
+        }
+        
+        video.src = URL.createObjectURL(file);
+        updateStatus(`📁 Video loaded: ${file.name}. Ready to process.`, 'success');
+        
+        // Enable process button
+        processBtn.disabled = false;
+    }
+});
+
+// Process button click
+processBtn.addEventListener("click", async () => {
+    if (isProcessing) {
+        updateStatus("⏳ Already processing, please wait...", 'warning');
+        return;
+    }
     
-    // Threshold and find contours
-    let thresh = new cv.Mat();
-    cv.adaptiveThreshold(processed, thresh, 255,
-                         cv.ADAPTIVE_THRESH_GAUSSIAN_C,
-                         cv.THRESH_BINARY_INV, 11, 2);
+    if (!video.src) {
+        updateStatus("❌ Please select a video file first!", 'error');
+        return;
+    }
     
-    // Return classification result
+    if (typeof cv === 'undefined') {
+        updateStatus("❌ OpenCV.js not loaded. Please refresh page.", 'error');
+        return;
+    }
+    
+    try {
+        isProcessing = true;
+        processBtn.disabled = true;
+        updateStatus("⏳ Starting analysis...", 'info');
+        
+        await processVideo();
+        
+    } catch (error) {
+        console.error("❌ Processing error:", error);
+        updateStatus(`❌ Error: ${error.message}`, 'error');
+        isProcessing = false;
+        processBtn.disabled = false;
+    }
+});
+
+// Main processing function
+async function processVideo() {
+    console.log("Starting video processing...");
+    
+    // Reset data and UI
+    exportData = [];
+    previewDiv.innerHTML = "";
+    resultsDiv.style.display = "none";
+    
+    // Set canvas size
+    canvas.width = 800;
+    canvas.height = 600;
+    
+    // Wait for video to be ready
+    if (video.readyState < 2) {
+        updateStatus("⏳ Loading video metadata...", 'info');
+        await new Promise(resolve => {
+            video.onloadedmetadata = resolve;
+        });
+    }
+    
+    // Get video properties
+    const videoDuration = video.duration || 0;
+    const videoWidth = video.videoWidth || 800;
+    const videoHeight = video.videoHeight || 600;
+    
+    console.log(`Video: ${videoWidth}x${videoHeight}, Duration: ${videoDuration}s`);
+    
+    if (videoDuration === 0) {
+        throw new Error("Cannot read video duration. Please try a different video file.");
+    }
+    
+    // Define frames to process (adjust times based on your video)
+    // For demo, we'll process frames at specific times
+    const framesToProcess = [
+        { name: "ISOTROPIC_EXAMPLE", time: 10 },   // Early frame (likely isotropic)
+        { name: "CHOLESTERIC_EXAMPLE", time: Math.min(30, videoDuration - 1) }  // Later frame
+    ];
+    
+    updateStatus(`⏳ Processing ${framesToProcess.length} frames...`, 'info');
+    
+    // Process each frame
+    for (let i = 0; i < framesToProcess.length; i++) {
+        const frameInfo = framesToProcess[i];
+        const progress = Math.round(((i + 1) / framesToProcess.length) * 100);
+        
+        updateStatus(`⏳ Processing frame ${i + 1}/${framesToProcess.length} (${progress}%)...`, 'info');
+        
+        try {
+            const result = await processFrameAtTime(frameInfo.time, frameInfo.name);
+            if (result) {
+                exportData.push(result);
+                displayFrameResult(result);
+            }
+        } catch (frameError) {
+            console.warn(`Failed to process frame at ${frameInfo.time}s:`, frameError);
+            updateStatus(`⚠️ Skipped frame at ${frameInfo.time}s`, 'warning');
+        }
+        
+        // Small delay between frames
+        await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    
+    // Show results
+    resultsDiv.style.display = "block";
+    generateSummary();
+    updateStatus(`✅ Analysis complete! Processed ${exportData.length} frames.`, 'success');
+    
+    isProcessing = false;
+    processBtn.disabled = false;
+}
+
+// Process frame at specific time
+async function processFrameAtTime(timeSeconds, frameName) {
+    console.log(`Processing frame at ${timeSeconds}s...`);
+    
+    // Seek to time
+    video.currentTime = timeSeconds;
+    
+    // Wait for seek to complete
+    await new Promise(resolve => {
+        const onSeeked = () => {
+            video.removeEventListener('seeked', onSeeked);
+            setTimeout(resolve, 200); // Extra buffer time
+        };
+        video.addEventListener('seeked', onSeeked);
+    });
+    
+    // Draw frame on canvas
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    
+    // Process the frame
+    const result = await processSingleFrame(canvas, frameName, timeSeconds);
+    
     return {
-        name: frameName,
-        timestamp: timestamp,
-        validContours: countValidContours(thresh),
-        phase: classifyPhase(countValidContours(thresh))
+        ...result,
+        time: timeSeconds,
+        name: frameName
     };
-}</code></pre>
-      </div>
-      
-      <div id="classification-code" class="hidden">
-        <pre><code>// Simple classification based on contours
-function classifyPhase(contourCount) {
-    /*
-    Binary classification rule:
-    - If contour count = 0 → ISOTROPIC phase
-    - If contour count > 0 → CHOLESTERIC phase
+}
+
+// Process a single frame
+async function processSingleFrame(canvasElement, frameName, timestamp) {
+    console.log(`Processing ${frameName} at ${timestamp}s`);
     
-    This matches the Python implementation:
-    if num_contours == 0:
-        phase = "ISOTROPIC"
-    else:
-        phase = "CHOLESTERIC"
-    */
+    try {
+        // Read image from canvas
+        let src = cv.imread(canvasElement);
+        
+        if (src.empty()) {
+            throw new Error("Failed to read image from canvas");
+        }
+        
+        // Convert to grayscale
+        let gray = new cv.Mat();
+        cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+        
+        // 1. Simple threshold for mask (detect bright areas - electrodes)
+        let mask = new cv.Mat();
+        cv.threshold(gray, mask, 200, 255, cv.THRESH_BINARY);
+        
+        // Invert mask (we want to KEEP dark areas, REMOVE bright electrodes)
+        cv.bitwise_not(mask, mask);
+        
+        // 2. Apply mask to grayscale image
+        let maskedGray = new cv.Mat();
+        cv.bitwise_and(gray, gray, maskedGray, mask);
+        
+        // 3. Preprocessing
+        let blurred = new cv.Mat();
+        cv.GaussianBlur(maskedGray, blurred, new cv.Size(5, 5), 0);
+        
+        let equalized = new cv.Mat();
+        cv.equalizeHist(blurred, equalized);
+        
+        // 4. Threshold for contour detection
+        let thresh = new cv.Mat();
+        cv.adaptiveThreshold(equalized, thresh, 255, 
+                           cv.ADAPTIVE_THRESH_GAUSSIAN_C,
+                           cv.THRESH_BINARY_INV, 11, 2);
+        
+        // Apply mask to threshold result
+        let finalThresh = new cv.Mat();
+        cv.bitwise_and(thresh, mask, finalThresh);
+        
+        // 5. Find contours
+        let contours = new cv.MatVector();
+        let hierarchy = new cv.Mat();
+        cv.findContours(finalThresh, contours, hierarchy, 
+                       cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+        
+        // 6. Count valid contours
+        let validContours = 0;
+        for (let i = 0; i < contours.size(); i++) {
+            let c = contours.get(i);
+            let area = cv.contourArea(c);
+            
+            // Filter by size (adjust these values based on your needs)
+            if (area < 30 || area > 5000) continue;
+            
+            let peri = cv.arcLength(c, true);
+            if (peri === 0) continue;
+            
+            // Filter by circularity
+            let circ = 4 * Math.PI * area / (peri * peri);
+            if (circ > 0.2 && circ < 1.2) {
+                validContours++;
+            }
+        }
+        
+        // 7. Classify
+        let phase = classifyPhase(validContours);
+        
+        console.log(`${frameName}: ${validContours} contours → ${phase}`);
+        
+        // Create visualization with contours
+        let displayImg = src.clone();
+        if (validContours > 0) {
+            cv.drawContours(displayImg, contours, -1, [0, 255, 0, 255], 2);
+        }
+        
+        // Cleanup
+        gray.delete();
+        mask.delete();
+        maskedGray.delete();
+        blurred.delete();
+        equalized.delete();
+        thresh.delete();
+        finalThresh.delete();
+        hierarchy.delete();
+        contours.delete();
+        
+        return {
+            src: src,
+            display: displayImg,
+            processed: equalized.clone(),
+            thresh: finalThresh.clone(),
+            validContours: validContours,
+            phase: phase
+        };
+        
+    } catch (error) {
+        console.error("Error in processSingleFrame:", error);
+        throw error;
+    }
+}
+
+// Simple classification
+function classifyPhase(contourCount) {
+    // Simple rule: 0 contours = isotropic, >0 contours = cholesteric
     return contourCount === 0 ? "ISOTROPIC" : "CHOLESTERIC";
-}</code></pre>
-      </div>
-    </div>
-  </div>
-</div>
+}
 
-<script src="https://docs.opencv.org/4.x/opencv.js"></script>
-<script src="script.js"></script>
+// Display frame results
+function displayFrameResult(result) {
+    const frameDiv = document.createElement("div");
+    frameDiv.className = "frame-result";
+    frameDiv.style.border = `3px solid ${phaseColors[result.phase]}`;
+    frameDiv.style.padding = "15px";
+    frameDiv.style.margin = "10px 0";
+    frameDiv.style.borderRadius = "10px";
+    frameDiv.style.background = "white";
+    
+    // Convert mats to canvases
+    const srcCanvas = matToCanvas(result.src, "Original Frame");
+    const procCanvas = matToCanvas(result.processed, "Preprocessed");
+    const threshCanvas = matToCanvas(result.thresh, `Threshold (${result.validContours} contours)`);
+    const displayCanvas = matToCanvas(result.display, "Result with Contours");
+    
+    frameDiv.innerHTML = `
+        <h3 style="color: ${phaseColors[result.phase]}; margin-top: 0;">
+            ${result.phase} Phase (${result.validContours} contours)
+        </h3>
+        <div style="color: #666; margin-bottom: 15px;">
+            Time: ${result.time.toFixed(1)}s
+        </div>
+        
+        <div class="frame-images" style="display: flex; flex-wrap: wrap; gap: 15px; justify-content: center;">
+            <div style="flex: 1; min-width: 200px; text-align: center;">
+                <h4 style="margin: 5px 0; color: #555;">Original</h4>
+                ${srcCanvas.outerHTML}
+            </div>
+            <div style="flex: 1; min-width: 200px; text-align: center;">
+                <h4 style="margin: 5px 0; color: #555;">Preprocessed</h4>
+                ${procCanvas.outerHTML}
+            </div>
+        </div>
+        
+        <div class="frame-images" style="display: flex; flex-wrap: wrap; gap: 15px; justify-content: center; margin-top: 15px;">
+            <div style="flex: 1; min-width: 200px; text-align: center;">
+                <h4 style="margin: 5px 0; color: #555;">Threshold</h4>
+                ${threshCanvas.outerHTML}
+            </div>
+            <div style="flex: 1; min-width: 200px; text-align: center;">
+                <h4 style="margin: 5px 0; color: #555;">Result</h4>
+                ${displayCanvas.outerHTML}
+            </div>
+        </div>
+        
+        <div style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 5px;">
+            <p style="margin: 5px 0;"><strong>Contours found:</strong> ${result.validContours}</p>
+            <p style="margin: 5px 0;"><strong>Classification:</strong> 
+                <span style="color: ${phaseColors[result.phase]}; font-weight: bold;">
+                    ${result.phase}
+                </span>
+            </p>
+            <p style="margin: 5px 0; font-size: 0.9em; color: #666;">
+                Rule: ${result.validContours === 0 ? 
+                       "0 contours = ISOTROPIC" : 
+                       `${result.validContours} contours = CHOLESTERIC`}
+            </p>
+        </div>
+    `;
+    
+    previewDiv.appendChild(frameDiv);
+    
+    // Cleanup
+    result.src.delete();
+    result.display.delete();
+    result.processed.delete();
+    result.thresh.delete();
+}
 
-</body>
-</html>
+// Convert OpenCV Mat to Canvas
+function matToCanvas(mat, title = "") {
+    const canvas = document.createElement("canvas");
+    canvas.width = mat.cols;
+    canvas.height = mat.rows;
+    
+    // Convert to RGBA if needed
+    let displayMat = mat.clone();
+    if (mat.type() === cv.CV_8UC1) {
+        cv.cvtColor(mat, displayMat, cv.COLOR_GRAY2RGBA);
+    } else if (mat.type() === cv.CV_8UC3) {
+        cv.cvtColor(mat, displayMat, cv.COLOR_RGB2RGBA);
+    }
+    
+    cv.imshow(canvas, displayMat);
+    displayMat.delete();
+    
+    canvas.style.border = "1px solid #ddd";
+    canvas.style.borderRadius = "5px";
+    canvas.style.maxWidth = "100%";
+    canvas.style.height = "auto";
+    
+    if (title) {
+        canvas.title = title;
+    }
+    
+    return canvas;
+}
+
+// Generate summary
+function generateSummary() {
+    const summaryDiv = document.getElementById("summary");
+    summaryDiv.innerHTML = "";
+    
+    if (exportData.length === 0) {
+        summaryDiv.innerHTML = "<p>No data to display.</p>";
+        return;
+    }
+    
+    let html = `<h3 style="margin-top: 0;">📋 Analysis Summary</h3>`;
+    html += `<p><strong>Classification Rule:</strong><br>`;
+    html += `• 0 contours → ISOTROPIC phase<br>`;
+    html += `• >0 contours → CHOLESTERIC phase</p>`;
+    
+    html += `<table class="summary-table" style="width: 100%; border-collapse: collapse; margin-top: 15px;">
+        <tr style="background: #007bff; color: white;">
+            <th style="padding: 10px; border: 1px solid #ddd;">Frame</th>
+            <th style="padding: 10px; border: 1px solid #ddd;">Time (s)</th>
+            <th style="padding: 10px; border: 1px solid #ddd;">Contours</th>
+            <th style="padding: 10px; border: 1px solid #ddd;">Phase</th>
+        </tr>`;
+    
+    exportData.forEach((result, index) => {
+        html += `<tr style="${index % 2 === 0 ? 'background: #f8f9fa;' : ''}">
+            <td style="padding: 10px; border: 1px solid #ddd;">Frame ${index + 1}</td>
+            <td style="padding: 10px; border: 1px solid #ddd;">${result.time.toFixed(1)}</td>
+            <td style="padding: 10px; border: 1px solid #ddd;">${result.validContours}</td>
+            <td style="padding: 10px; border: 1px solid #ddd; color: ${phaseColors[result.phase]}; font-weight: bold;">
+                ${result.phase}
+            </td>
+        </tr>`;
+    });
+    
+    html += `</table>`;
+    
+    summaryDiv.innerHTML = html;
+}
+
+// Export to CSV
+document.getElementById("downloadBtn").addEventListener("click", () => {
+    if (exportData.length === 0) {
+        alert("No data to export. Please process video first.");
+        return;
+    }
+    
+    let csv = "frame,time_seconds,contours,phase\n";
+    exportData.forEach((result, index) => {
+        csv += `Frame ${index + 1},${result.time},${result.validContours},${result.phase}\n`;
+    });
+    
+    // Create download link
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "liquid_crystal_analysis.csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    updateStatus("✅ CSV file downloaded", 'success');
+});
+
+// Code tab switching
+function showCode(language) {
+    // Remove active class from all buttons
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    // Hide all code blocks
+    document.querySelectorAll('.code-container > div').forEach(div => {
+        div.classList.add('hidden');
+    });
+    
+    // Activate selected button and show code
+    document.querySelector(`[onclick="showCode('${language}')"]`).classList.add('active');
+    document.getElementById(`${language}-code`).classList.remove('hidden');
+}
