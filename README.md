@@ -11,5 +11,3 @@ Proyek ini menganalisis video fase liquid crystal (Blue Phase Liquid Crystal) un
 - Deteksi kontur pada area liquid crystal
 - Klasifikasi fase berdasarkan jumlah kontur (0 = isotropic, >0 = cholesteric)
 - Visualisasi step-by-step processing
-
-## 📁 Struktur Proyek
