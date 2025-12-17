@@ -6,199 +6,199 @@
     <title>Liquid Crystal Phase Analyzer</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <!-- External Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-    
-    <!-- OpenCV.js -->
-    <script async src="https://docs.opencv.org/4.8.0/opencv.js" 
-            id="opencv-script">
-    </script>
 </head>
 <body>
-    <!-- ... HTML content sama seperti sebelumnya ... -->
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1><i class="fas fa-microscope"></i> Liquid Crystal Phase Analyzer</h1>
+            <p class="subtitle">Upload video and analyze Cholesteric/Isotropic phases</p>
+        </header>
 
-    <!-- Loading Overlay -->
-    <div id="opencvLoading" class="loading-overlay">
-        <div class="loading-content">
-            <i class="fas fa-spinner fa-spin fa-3x"></i>
-            <h3>Loading OpenCV Library...</h3>
-            <p>This may take a moment (around 10-20MB download)</p>
-            <div class="progress">
-                <div class="progress-bar"></div>
-            </div>
-            <p id="opencvProgress">Initializing...</p>
-        </div>
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Upload Section -->
+            <section class="upload-section card">
+                <h2><i class="fas fa-video"></i> Upload Video</h2>
+                <div class="upload-area" id="uploadArea">
+                    <i class="fas fa-cloud-upload-alt upload-icon"></i>
+                    <p class="upload-text">Drag & drop your video file here</p>
+                    <p class="upload-subtext">or click to browse</p>
+                    <p class="file-types">Supported: MP4, AVI, MOV, MKV, WebM (Max: 200MB)</p>
+                    <input type="file" id="videoInput" accept=".mp4,.avi,.mov,.mkv,.webm" hidden>
+                </div>
+                <div id="fileInfo" class="file-info hidden">
+                    <p><i class="fas fa-file-video"></i> <span id="fileName"></span></p>
+                    <p><i class="fas fa-info-circle"></i> Size: <span id="fileSize"></span> MB</p>
+                    <button id="removeFile" class="btn-remove"><i class="fas fa-times"></i> Remove</button>
+                </div>
+            </section>
+
+            <!-- Parameters Section -->
+            <section class="parameters-section card">
+                <h2><i class="fas fa-sliders-h"></i> Analysis Parameters</h2>
+                <div class="params-grid">
+                    <div class="param-item">
+                        <label for="contourThreshold">
+                            <i class="fas fa-shapes"></i> Contour Threshold
+                        </label>
+                        <div class="slider-container">
+                            <input type="range" id="contourThreshold" min="5" max="50" value="15" class="slider">
+                            <span class="slider-value" id="contourValue">15</span>
+                        </div>
+                        <p class="param-desc">Lower = more sensitive to Cholesteric</p>
+                    </div>
+
+                    <div class="param-item">
+                        <label for="varianceThreshold">
+                            <i class="fas fa-chart-bar"></i> Variance Threshold
+                        </label>
+                        <div class="slider-container">
+                            <input type="range" id="varianceThreshold" min="80" max="120" value="96" class="slider">
+                            <span class="slider-value" id="varianceValue">96</span>
+                        </div>
+                        <p class="param-desc">Higher = more sensitive to Isotropic</p>
+                    </div>
+
+                    <div class="param-item">
+                        <label for="samplingRate">
+                            <i class="fas fa-tachometer-alt"></i> Sampling Rate
+                        </label>
+                        <div class="slider-container">
+                            <input type="range" id="samplingRate" min="1" max="60" value="30" class="slider">
+                            <span class="slider-value" id="samplingValue">30</span>
+                        </div>
+                        <p class="param-desc">Higher = faster analysis</p>
+                    </div>
+                </div>
+
+                <div class="action-buttons">
+                    <button id="analyzeBtn" class="btn-analyze" disabled>
+                        <i class="fas fa-play-circle"></i> Start Analysis
+                    </button>
+                    <button id="resetBtn" class="btn-reset">
+                        <i class="fas fa-redo"></i> Reset
+                    </button>
+                </div>
+            </section>
+
+            <!-- Progress Section -->
+            <section id="progressSection" class="progress-section card hidden">
+                <h2><i class="fas fa-spinner fa-spin"></i> Analyzing Video</h2>
+                <div class="progress-container">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <div class="progress-info">
+                        <span id="progressText">Initializing...</span>
+                        <span id="progressPercent">0%</span>
+                    </div>
+                </div>
+                <div class="progress-details">
+                    <div class="detail-item">
+                        <i class="fas fa-clock"></i>
+                        <span>Elapsed: <span id="elapsedTime">0s</span></span>
+                    </div>
+                    <div class="detail-item">
+                        <i class="fas fa-film"></i>
+                        <span>Frames processed: <span id="framesProcessed">0</span></span>
+                    </div>
+                    <div class="detail-item">
+                        <i class="fas fa-chart-line"></i>
+                        <span>Current phase: <span id="currentPhase">-</span></span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Results Section -->
+            <section id="resultsSection" class="results-section card hidden">
+                <h2><i class="fas fa-chart-bar"></i> Analysis Results</h2>
+                
+                <div class="results-summary">
+                    <div class="summary-card cholesteric">
+                        <h3><i class="fas fa-water"></i> Cholesteric Phase</h3>
+                        <div class="summary-value" id="cholestericPercent">0%</div>
+                        <div class="summary-duration" id="cholestericDuration">0 min</div>
+                    </div>
+                    
+                    <div class="summary-card isotropic">
+                        <h3><i class="fas fa-tint"></i> Isotropic Phase</h3>
+                        <div class="summary-value" id="isotropicPercent">0%</div>
+                        <div class="summary-duration" id="isotropicDuration">0 min</div>
+                    </div>
+                    
+                    <div class="summary-card transition">
+                        <h3><i class="fas fa-exchange-alt"></i> Transition</h3>
+                        <div class="summary-value" id="transitionTime">-</div>
+                        <div class="summary-desc">Phase change time</div>
+                    </div>
+                </div>
+
+                <!-- Charts Container -->
+                <div class="charts-container">
+                    <div class="chart-wrapper">
+                        <h3>Contour Detection</h3>
+                        <canvas id="contourChart"></canvas>
+                    </div>
+                    <div class="chart-wrapper">
+                        <h3>Variance Analysis</h3>
+                        <canvas id="varianceChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Download Buttons -->
+                <div class="download-section">
+                    <h3><i class="fas fa-download"></i> Download Results</h3>
+                    <div class="download-buttons">
+                        <button id="downloadCSV" class="btn-download">
+                            <i class="fas fa-file-csv"></i> CSV Data
+                        </button>
+                        <button id="downloadPlot" class="btn-download">
+                            <i class="fas fa-file-image"></i> Plot Image
+                        </button>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>Liquid Crystal Phase Analyzer v1.0 | Pure JavaScript Version</p>
+            <p class="footer-note">
+                <i class="fas fa-info-circle"></i> 
+                This tool analyzes video frames using pure JavaScript algorithms.
+                No OpenCV required - works in any modern browser.
+            </p>
+        </footer>
     </div>
 
-    <!-- ANALYZER.JS -->
-    <script src="analyzer.js"></script>
+    <!-- NO OPENCV LOADING -->
     
+    <!-- Main Script -->
+    <script src="analyzer.js"></script>
     <script>
-        // Global state
-        let analyzerInstance = null;
-        let opencvReady = false;
-        let domReady = false;
-        let checkCount = 0;
-        const maxChecks = 100; // 50 detik timeout
-        
-        // Fungsi untuk inisialisasi
-        function initializeApp() {
-            console.log('🚀 Attempting to initialize application...');
-            console.log('📦 OpenCV ready:', opencvReady);
-            console.log('📦 DOM ready:', domReady);
-            console.log('📦 VideoAnalyzer available:', typeof VideoAnalyzer);
-            console.log('📦 cv object:', typeof cv);
-            
-            if (opencvReady && domReady && typeof VideoAnalyzer !== 'undefined') {
-                try {
-                    // Hide loading overlay
-                    const loadingOverlay = document.getElementById('opencvLoading');
-                    if (loadingOverlay) {
-                        loadingOverlay.style.display = 'none';
-                        console.log('✅ Loading overlay hidden');
-                    }
-                    
-                    // Create analyzer instance
-                    analyzerInstance = new VideoAnalyzer();
-                    console.log('✅ VideoAnalyzer instance created');
-                    
-                    // Initialize
-                    if (analyzerInstance && typeof analyzerInstance.init === 'function') {
-                        analyzerInstance.init();
-                        console.log('🎉 Application initialized successfully!');
-                    } else {
-                        console.error('❌ analyzerInstance.init is not a function');
-                        console.log('analyzerInstance:', analyzerInstance);
-                        console.log('init function:', analyzerInstance ? analyzerInstance.init : 'undefined');
-                    }
-                    
-                } catch (error) {
-                    console.error('❌ Error during initialization:', error);
-                    alert('Failed to initialize application: ' + error.message);
-                }
-            } else {
-                console.log('⏳ Waiting for dependencies...');
-            }
-        }
-        
-        // Check if OpenCV is loaded - VERSION YANG BENAR
-        function checkOpenCV() {
-            checkCount++;
-            
-            // Update progress bar
-            const progressPercent = Math.min(100, (checkCount / maxChecks) * 100);
-            const progressBar = document.querySelector('.progress-bar');
-            if (progressBar) {
-                progressBar.style.width = progressPercent + '%';
-            }
-            
-            document.getElementById('opencvProgress').textContent = 
-                `Loading... ${Math.round(progressPercent)}% (${checkCount}/${maxChecks})`;
-            
-            // Check for OpenCV in different ways
-            if (typeof cv !== 'undefined') {
-                console.log('✅ OpenCV object detected');
-                
-                // Check for version info in different ways
-                let versionInfo = 'OpenCV.js loaded';
-                
-                try {
-                    // Try different methods to get version
-                    if (cv.getBuildInformation) {
-                        const buildInfo = cv.getBuildInformation();
-                        console.log('OpenCV build info available');
-                        versionInfo = 'OpenCV WebAssembly';
-                    } else if (cv.Mat) {
-                        console.log('cv.Mat constructor available');
-                        versionInfo = 'OpenCV WebAssembly (Mat available)';
-                    }
-                } catch (e) {
-                    console.log('Could not get detailed OpenCV info:', e.message);
-                }
-                
-                document.getElementById('opencvProgress').textContent = versionInfo;
-                opencvReady = true;
-                initializeApp();
-                return;
-            }
-            
-            // Continue checking if not loaded yet
-            if (checkCount < maxChecks) {
-                setTimeout(checkOpenCV, 500);
-            } else {
-                console.error('❌ OpenCV loading timeout');
-                document.getElementById('opencvProgress').textContent = 
-                    'Failed to load OpenCV. Please refresh the page.';
-                
-                // Try alternative OpenCV source
-                setTimeout(loadAlternativeOpenCV, 2000);
-            }
-        }
-        
-        // Alternative OpenCV source
-        function loadAlternativeOpenCV() {
-            console.log('🔄 Trying alternative OpenCV source...');
-            document.getElementById('opencvProgress').textContent = 
-                'Trying alternative OpenCV source...';
-            
-            const altScript = document.createElement('script');
-            altScript.src = 'https://cdn.jsdelivr.net/npm/opencv.js@4.8.0/opencv.js';
-            altScript.onload = function() {
-                console.log('✅ Alternative OpenCV loaded');
-                opencvReady = true;
-                initializeApp();
-            };
-            altScript.onerror = function() {
-                console.error('❌ Both OpenCV sources failed');
-                document.getElementById('opencvProgress').textContent = 
-                    'OpenCV failed to load. Please check your internet connection.';
-            };
-            document.head.appendChild(altScript);
-        }
-        
-        // Start checking for OpenCV
+        // Simple initialization
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('✅ DOM fully loaded');
-            domReady = true;
+            console.log('DOM ready, initializing app...');
             
-            // Start OpenCV check after DOM is ready
-            setTimeout(checkOpenCV, 1000);
-        });
-        
-        // Manual initialization button (fallback)
-        function manualInit() {
-            console.log('🔧 Manual initialization requested');
             if (typeof VideoAnalyzer !== 'undefined') {
-                analyzerInstance = new VideoAnalyzer();
-                analyzerInstance.init();
-                document.getElementById('opencvLoading').style.display = 'none';
-                alert('Application initialized manually!');
+                try {
+                    const analyzer = new VideoAnalyzer();
+                    analyzer.init();
+                    console.log('✅ Application initialized successfully');
+                } catch (error) {
+                    console.error('❌ Initialization error:', error);
+                    alert('Failed to initialize: ' + error.message);
+                }
             } else {
-                alert('VideoAnalyzer not available. Please check console.');
+                console.error('❌ VideoAnalyzer not defined');
+                alert('VideoAnalyzer class not found. Please check analyzer.js');
             }
-        }
-        
-        // Add manual init button to loading screen
-        window.onload = function() {
-            const loadingContent = document.querySelector('.loading-content');
-            if (loadingContent) {
-                const manualBtn = document.createElement('button');
-                manualBtn.textContent = 'Manual Initialize';
-                manualBtn.style.marginTop = '20px';
-                manualBtn.style.padding = '10px 20px';
-                manualBtn.style.background = '#4361ee';
-                manualBtn.style.color = 'white';
-                manualBtn.style.border = 'none';
-                manualBtn.style.borderRadius = '5px';
-                manualBtn.style.cursor = 'pointer';
-                manualBtn.onclick = manualInit;
-                loadingContent.appendChild(manualBtn);
-            }
-        };
+        });
     </script>
 </body>
 </html>
