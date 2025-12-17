@@ -1,377 +1,209 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BPLC Phase Detection</title>
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-    
-    body { 
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      padding: 20px;
-      min-height: 100vh;
-    }
-    
-    .container {
-      max-width: 1400px;
-      margin: 0 auto;
-    }
-    
-    h1 { 
-      color: white; 
-      text-align: center; 
-      margin-bottom: 10px;
-      font-size: 2.5em;
-      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-    }
-    
-    .subtitle {
-      text-align: center;
-      color: rgba(255,255,255,0.9);
-      margin-bottom: 30px;
-      font-size: 1.1em;
-    }
-    
-    .upload-box { 
-      background: white; 
-      padding: 30px; 
-      border-radius: 15px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.1);
-      margin-bottom: 30px;
-    }
-    
-    .file-input-wrapper {
-      position: relative;
-      margin-bottom: 20px;
-    }
-    
-    input[type="file"] {
-      width: 100%;
-      padding: 15px;
-      border: 2px dashed #667eea;
-      border-radius: 10px;
-      background: #f8f9fa;
-      cursor: pointer;
-      font-size: 1em;
-    }
-    
-    input[type="file"]:hover {
-      background: #e9ecef;
-      border-color: #764ba2;
-    }
-    
-    button { 
-      padding: 12px 30px;
-      border: none;
-      border-radius: 8px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      cursor: pointer;
-      font-size: 1.1em;
-      font-weight: 600;
-      transition: all 0.3s;
-      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
-    }
-    
-    button:hover:not(:disabled) {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
-    }
-    
-    button:disabled {
-      background: #ccc;
-      cursor: not-allowed;
-      box-shadow: none;
-    }
-    
-    .processing-area {
-      display: none;
-      background: white;
-      padding: 30px;
-      border-radius: 15px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.1);
-      margin-bottom: 30px;
-    }
-    
-    .video-container {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      gap: 20px;
-      margin-bottom: 20px;
-    }
-    
-    .preview-box {
-      background: #f8f9fa;
-      padding: 15px;
-      border-radius: 10px;
-      text-align: center;
-    }
-    
-    .preview-box h3 {
-      margin-bottom: 10px;
-      color: #333;
-      font-size: 1.1em;
-    }
-    
-    video, canvas {
-      max-width: 100%;
-      border-radius: 8px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-    }
-    
-    #video {
-      display: none;
-    }
-    
-    .progress-container {
-      margin: 20px 0;
-      display: none;
-    }
-    
-    .progress-bar {
-      width: 100%;
-      height: 30px;
-      background: #e9ecef;
-      border-radius: 15px;
-      overflow: hidden;
-      position: relative;
-    }
-    
-    .progress-fill {
-      height: 100%;
-      background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-      width: 0%;
-      transition: width 0.3s;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: white;
-      font-weight: bold;
-    }
-    
-    .status-box {
-      background: #f8f9fa;
-      padding: 15px;
-      border-radius: 10px;
-      margin: 20px 0;
-      display: none;
-    }
-    
-    .status-item {
-      display: flex;
-      justify-content: space-between;
-      padding: 8px 0;
-      border-bottom: 1px solid #dee2e6;
-    }
-    
-    .status-item:last-child {
-      border-bottom: none;
-    }
-    
-    .status-label {
-      font-weight: 600;
-      color: #495057;
-    }
-    
-    .status-value {
-      color: #667eea;
-      font-weight: 700;
-    }
-    
-    .results-section {
-      display: none;
-      background: white;
-      padding: 30px;
-      border-radius: 15px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.1);
-    }
-    
-    .results-header {
-      text-align: center;
-      margin-bottom: 30px;
-    }
-    
-    .results-header h2 {
-      color: #333;
-      margin-bottom: 10px;
-    }
-    
-    .phase-summary {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 20px;
-      margin-bottom: 30px;
-    }
-    
-    .phase-card {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      padding: 25px;
-      border-radius: 12px;
-      text-align: center;
-      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
-    }
-    
-    .phase-card.isotropic {
-      background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-    }
-    
-    .phase-card.cholesteric {
-      background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
-    }
-    
-    .phase-card h3 {
-      font-size: 1.2em;
-      margin-bottom: 10px;
-    }
-    
-    .phase-card .value {
-      font-size: 2.5em;
-      font-weight: bold;
-      margin: 10px 0;
-    }
-    
-    .phase-card .percentage {
-      font-size: 1.1em;
-      opacity: 0.9;
-    }
-    
-    .chart-container {
-      margin: 30px 0;
-      background: #f8f9fa;
-      padding: 20px;
-      border-radius: 10px;
-    }
-    
-    .button-group {
-      display: flex;
-      gap: 15px;
-      justify-content: center;
-      margin-top: 30px;
-      flex-wrap: wrap;
-    }
-    
-    .btn-secondary {
-      background: linear-gradient(135deg, #20bf6b 0%, #26de81 100%);
-    }
-    
-    .btn-secondary:hover {
-      box-shadow: 0 6px 20px rgba(32, 191, 107, 0.4);
-    }
-    
-    @media (max-width: 768px) {
-      h1 {
-        font-size: 1.8em;
-      }
-      
-      .video-container {
-        grid-template-columns: 1fr;
-      }
-      
-      .button-group {
-        flex-direction: column;
-      }
-      
-      button {
-        width: 100%;
-      }
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Liquid Crystal Phase Analyzer</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 </head>
 <body>
-  <div class="container">
-    <h1>🔬 BPLC Phase Detection</h1>
-    <p class="subtitle">Analisis fase Blue Phase Liquid Crystal: Cholesteric → Isotropic</p>
-    
-    <div class="upload-box">
-      <div class="file-input-wrapper">
-        <input type="file" id="videoFile" accept="video/*" />
-      </div>
-      <button id="processBtn" disabled>🚀 Mulai Analisis</button>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1><i class="fas fa-microscope"></i> Liquid Crystal Phase Analyzer</h1>
+            <p class="subtitle">Upload video of liquid crystal and analyze Cholesteric/Isotropic phases</p>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Upload Section -->
+            <section class="upload-section card">
+                <h2><i class="fas fa-video"></i> Upload Video</h2>
+                <div class="upload-area" id="uploadArea">
+                    <i class="fas fa-cloud-upload-alt upload-icon"></i>
+                    <p class="upload-text">Drag & drop your video file here</p>
+                    <p class="upload-subtext">or click to browse</p>
+                    <p class="file-types">Supported: MP4, AVI, MOV, MKV, WebM (Max: 500MB)</p>
+                    <input type="file" id="videoInput" accept=".mp4,.avi,.mov,.mkv,.webm" hidden>
+                </div>
+                <div id="fileInfo" class="file-info hidden">
+                    <p><i class="fas fa-file-video"></i> <span id="fileName"></span></p>
+                    <p><i class="fas fa-info-circle"></i> Size: <span id="fileSize"></span> MB</p>
+                    <button id="removeFile" class="btn-remove"><i class="fas fa-times"></i> Remove</button>
+                </div>
+            </section>
+
+            <!-- Parameters Section -->
+            <section class="parameters-section card">
+                <h2><i class="fas fa-sliders-h"></i> Analysis Parameters</h2>
+                <div class="params-grid">
+                    <div class="param-item">
+                        <label for="contourThreshold">
+                            <i class="fas fa-shapes"></i> Contour Threshold
+                            <span class="tooltip" title="Number of contours below which phase is classified as Isotropic">
+                                <i class="fas fa-question-circle"></i>
+                            </span>
+                        </label>
+                        <div class="slider-container">
+                            <input type="range" id="contourThreshold" min="5" max="50" value="15" class="slider">
+                            <span class="slider-value" id="contourValue">15</span>
+                        </div>
+                        <p class="param-desc">Lower = more sensitive to Cholesteric phase</p>
+                    </div>
+
+                    <div class="param-item">
+                        <label for="varianceThreshold">
+                            <i class="fas fa-chart-bar"></i> Variance Threshold
+                            <span class="tooltip" title="Variance above which phase is classified as Isotropic">
+                                <i class="fas fa-question-circle"></i>
+                            </span>
+                        </label>
+                        <div class="slider-container">
+                            <input type="range" id="varianceThreshold" min="80" max="120" value="96" class="slider">
+                            <span class="slider-value" id="varianceValue">96</span>
+                        </div>
+                        <p class="param-desc">Higher = more sensitive to Isotropic phase</p>
+                    </div>
+
+                    <div class="param-item">
+                        <label for="samplingRate">
+                            <i class="fas fa-tachometer-alt"></i> Sampling Rate
+                            <span class="tooltip" title="Process 1 frame every N frames (higher = faster analysis)">
+                                <i class="fas fa-question-circle"></i>
+                            </span>
+                        </label>
+                        <div class="slider-container">
+                            <input type="range" id="samplingRate" min="1" max="60" value="30" class="slider">
+                            <span class="slider-value" id="samplingValue">30</span>
+                        </div>
+                        <p class="param-desc">Higher value = faster analysis</p>
+                    </div>
+                </div>
+
+                <div class="action-buttons">
+                    <button id="analyzeBtn" class="btn-analyze" disabled>
+                        <i class="fas fa-play-circle"></i> Start Analysis
+                    </button>
+                    <button id="resetBtn" class="btn-reset">
+                        <i class="fas fa-redo"></i> Reset
+                    </button>
+                </div>
+            </section>
+
+            <!-- Progress Section -->
+            <section id="progressSection" class="progress-section card hidden">
+                <h2><i class="fas fa-spinner fa-spin"></i> Analyzing Video</h2>
+                <div class="progress-container">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <div class="progress-info">
+                        <span id="progressText">Initializing...</span>
+                        <span id="progressPercent">0%</span>
+                    </div>
+                </div>
+                <div class="progress-details">
+                    <div class="detail-item">
+                        <i class="fas fa-clock"></i>
+                        <span>Elapsed: <span id="elapsedTime">0s</span></span>
+                    </div>
+                    <div class="detail-item">
+                        <i class="fas fa-film"></i>
+                        <span>Frames processed: <span id="framesProcessed">0</span></span>
+                    </div>
+                    <div class="detail-item">
+                        <i class="fas fa-chart-line"></i>
+                        <span>Current phase: <span id="currentPhase">-</span></span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Results Section -->
+            <section id="resultsSection" class="results-section card hidden">
+                <h2><i class="fas fa-chart-bar"></i> Analysis Results</h2>
+                
+                <div class="results-summary">
+                    <div class="summary-card cholesteric">
+                        <h3><i class="fas fa-water"></i> Cholesteric Phase</h3>
+                        <div class="summary-value" id="cholestericPercent">0%</div>
+                        <div class="summary-duration" id="cholestericDuration">0 min</div>
+                    </div>
+                    
+                    <div class="summary-card isotropic">
+                        <h3><i class="fas fa-tint"></i> Isotropic Phase</h3>
+                        <div class="summary-value" id="isotropicPercent">0%</div>
+                        <div class="summary-duration" id="isotropicDuration">0 min</div>
+                    </div>
+                    
+                    <div class="summary-card transition">
+                        <h3><i class="fas fa-exchange-alt"></i> Transition</h3>
+                        <div class="summary-value" id="transitionTime">-</div>
+                        <div class="summary-desc">Phase change time</div>
+                    </div>
+                </div>
+
+                <!-- Charts Container -->
+                <div class="charts-container">
+                    <div class="chart-wrapper">
+                        <h3>Contour Detection</h3>
+                        <canvas id="contourChart"></canvas>
+                    </div>
+                    <div class="chart-wrapper">
+                        <h3>Variance Analysis</h3>
+                        <canvas id="varianceChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Phase Timeline -->
+                <div class="timeline-container">
+                    <h3>Phase Timeline</h3>
+                    <div class="timeline" id="phaseTimeline">
+                        <!-- Timeline will be generated here -->
+                    </div>
+                </div>
+
+                <!-- Download Buttons -->
+                <div class="download-section">
+                    <h3><i class="fas fa-download"></i> Download Results</h3>
+                    <div class="download-buttons">
+                        <button id="downloadCSV" class="btn-download">
+                            <i class="fas fa-file-csv"></i> CSV Data
+                        </button>
+                        <button id="downloadPlot" class="btn-download">
+                            <i class="fas fa-file-image"></i> Plot Image
+                        </button>
+                        <button id="downloadAll" class="btn-download">
+                            <i class="fas fa-file-archive"></i> All Files (ZIP)
+                        </button>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>Liquid Crystal Phase Analyzer v1.0 | Made with <i class="fas fa-heart"></i> for Physics Research</p>
+            <p class="footer-note">
+                <i class="fas fa-info-circle"></i> 
+                This tool analyzes liquid crystal videos and classifies Cholesteric/Isotropic phases.
+                Processing happens entirely in your browser - no data is uploaded to any server.
+            </p>
+        </footer>
     </div>
-    
-    <div class="processing-area" id="processingArea">
-      <h2 style="margin-bottom: 20px; color: #333;">⚙️ Sedang Memproses...</h2>
-      
-      <div class="video-container">
-        <div class="preview-box">
-          <h3>Video Original</h3>
-          <video id="video" controls></video>
-        </div>
-        <div class="preview-box">
-          <h3>Frame Terakhir</h3>
-          <canvas id="canvas"></canvas>
-        </div>
-      </div>
-      
-      <div class="progress-container" id="progressContainer">
-        <div class="progress-bar">
-          <div class="progress-fill" id="progressFill">0%</div>
-        </div>
-      </div>
-      
-      <div class="status-box" id="statusBox">
-        <div class="status-item">
-          <span class="status-label">Frame Diproses:</span>
-          <span class="status-value" id="currentFrame">0</span>
-        </div>
-        <div class="status-item">
-          <span class="status-label">Total Frame:</span>
-          <span class="status-value" id="totalFrames">0</span>
-        </div>
-        <div class="status-item">
-          <span class="status-label">Fase Saat Ini:</span>
-          <span class="status-value" id="currentPhase">-</span>
-        </div>
-        <div class="status-item">
-          <span class="status-label">Kontur Terdeteksi:</span>
-          <span class="status-value" id="currentContours">0</span>
-        </div>
-      </div>
-    </div>
-    
-    <div class="results-section" id="resultsSection">
-      <div class="results-header">
-        <h2>📊 Hasil Analisis</h2>
-        <p>Deteksi fase berdasarkan jumlah kontur struktur</p>
-      </div>
-      
-      <div class="phase-summary">
-        <div class="phase-card cholesteric">
-          <h3>🔴 Cholesteric</h3>
-          <div class="value" id="cholestericCount">0</div>
-          <div class="percentage" id="cholestericPercent">0%</div>
-        </div>
-        <div class="phase-card isotropic">
-          <h3>🔵 Isotropic</h3>
-          <div class="value" id="isotropicCount">0</div>
-          <div class="percentage" id="isotropicPercent">0%</div>
-        </div>
-        <div class="phase-card">
-          <h3>📈 Total Frame</h3>
-          <div class="value" id="totalFrameCount">0</div>
-          <div class="percentage">Dianalisis</div>
-        </div>
-      </div>
-      
-      <div class="chart-container">
-        <canvas id="phaseChart"></canvas>
-      </div>
-      
-      <div class="button-group">
-        <button id="downloadBtn" class="btn-secondary">💾 Download CSV</button>
-        <button id="resetBtn">🔄 Analisis Video Baru</button>
-      </div>
-    </div>
-  </div>
-  
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="script.js"></script>
+
+    <!-- Scripts -->
+    <script src="analyzer.js"></script>
+    <script>
+        // Initialize UI interactions
+        document.addEventListener('DOMContentLoaded', function() {
+            const analyzer = new VideoAnalyzer();
+            analyzer.init();
+        });
+    </script>
 </body>
 </html>
