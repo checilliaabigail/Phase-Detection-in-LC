@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Upload</title>
+    <style>
+        body { padding: 20px; font-family: Arial; }
+        #uploadArea { 
+            border: 2px dashed #ccc; 
+            padding: 50px; 
+            text-align: center;
+            cursor: pointer;
+        }
+        #uploadArea:hover { background: #f0f0f0; }
+    </style>
+</head>
+<body>
+    <h1>Test File Upload</h1>
+    
+    <div id="uploadArea">
+        <p>Click here or drag & drop a video file</p>
+        <input type="file" id="videoInput" accept=".mp4,.avi,.mov,.mkv,.webm" hidden>
+    </div>
+    
+    <div id="fileInfo" style="margin-top: 20px; display: none;">
+        <p>Selected file: <span id="fileName"></span></p>
+        <p>Size: <span id="fileSize"></span> MB</p>
+        <button onclick="clearFile()">Remove</button>
+    </div>
+    
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const videoInput = document.getElementById('videoInput');
+        const fileInfo = document.getElementById('fileInfo');
+        const fileName = document.getElementById('fileName');
+        const fileSize = document.getElementById('fileSize');
+        
+        // Click to browse
+        uploadArea.addEventListener('click', () => {
+            console.log('Upload area clicked');
+            videoInput.click();
+        });
+        
+        // Drag and drop
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            console.log('File dragged over');
+            uploadArea.style.borderColor = 'blue';
+            uploadArea.style.background = '#e0e8ff';
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            console.log('File dragged away');
+            uploadArea.style.borderColor = '#ccc';
+            uploadArea.style.background = 'white';
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            console.log('File dropped');
+            uploadArea.style.borderColor = '#ccc';
+            uploadArea.style.background = 'white';
+            
+            if (e.dataTransfer.files.length > 0) {
+                const file = e.dataTransfer.files[0];
+                console.log('Dropped file:', file.name, file.size);
+                handleFileSelect(file);
+            }
+        });
+        
+        // File input change
+        videoInput.addEventListener('change', (e) => {
+            console.log('File input changed');
+            if (e.target.files.length > 0) {
+                const file = e.target.files[0];
+                console.log('Selected file:', file.name, file.size);
+                handleFileSelect(file);
+            }
+        });
+        
+        function handleFileSelect(file) {
+            console.log('handleFileSelect called with:', file.name);
+            
+            // Validation
+            const maxSize = 200 * 1024 * 1024; // 200MB
+            if (file.size > maxSize) {
+                alert('File too large. Maximum 200MB.');
+                return;
+            }
+            
+            // Update UI
+            fileName.textContent = file.name;
+            fileSize.textContent = (file.size / (1024 * 1024)).toFixed(2);
+            fileInfo.style.display = 'block';
+            
+            console.log('File ready for processing');
+        }
+        
+        function clearFile() {
+            console.log('Clearing file');
+            videoInput.value = '';
+            fileInfo.style.display = 'none';
+        }
+    </script>
+</body>
+</html>
