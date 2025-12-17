@@ -723,4 +723,90 @@ class VideoAnalyzer {
         }
         
         if (this.elements.analyzeBtn) {
-            this.elements.analyzeBtn.disabled =
+            this.elements.analyzeBtn.disabled = false;
+        }
+        
+        // Clear charts
+        if (this.charts.contour) {
+            this.charts.contour.destroy();
+            this.charts.contour = null;
+        }
+        if (this.charts.variance) {
+            this.charts.variance.destroy();
+            this.charts.variance = null;
+        }
+        
+        // Clear file
+        this.clearFile();
+        
+        // Reset progress display
+        if (this.elements.progressFill) {
+            this.elements.progressFill.style.width = '0%';
+        }
+        
+        if (this.elements.progressPercent) {
+            this.elements.progressPercent.textContent = '0%';
+        }
+        
+        if (this.elements.progressText) {
+            this.elements.progressText.textContent = 'Initializing...';
+        }
+        
+        if (this.elements.framesProcessed) {
+            this.elements.framesProcessed.textContent = '0';
+        }
+        
+        if (this.elements.currentPhase) {
+            this.elements.currentPhase.textContent = '-';
+        }
+        
+        if (this.elements.elapsedTime) {
+            this.elements.elapsedTime.textContent = '0s';
+        }
+        
+        // Clear timeline
+        if (this.elements.phaseTimeline) {
+            this.elements.phaseTimeline.innerHTML = '';
+        }
+        
+        console.log('Analysis reset complete');
+    }
+
+    showError(message) {
+        console.error('Error:', message);
+        alert('Error: ' + message);
+    }
+
+    updateSliderValues() {
+        // Set initial values
+        if (this.elements.contourValue) {
+            this.elements.contourValue.textContent = this.contourThreshold;
+        }
+        
+        if (this.elements.varianceValue) {
+            this.elements.varianceValue.textContent = this.varianceThreshold;
+        }
+        
+        if (this.elements.samplingValue) {
+            this.elements.samplingValue.textContent = this.samplingRate;
+        }
+        
+        // Set slider values
+        if (this.elements.contourThreshold) {
+            this.elements.contourThreshold.value = this.contourThreshold;
+        }
+        
+        if (this.elements.varianceThreshold) {
+            this.elements.varianceThreshold.value = this.varianceThreshold;
+        }
+        
+        if (this.elements.samplingRate) {
+            this.elements.samplingRate.value = this.samplingRate;
+        }
+    }
+}
+
+// Export untuk global access
+if (typeof window !== 'undefined') {
+    window.VideoAnalyzer = VideoAnalyzer;
+}
