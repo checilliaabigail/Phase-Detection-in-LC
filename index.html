@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Liquid Crystal Phase Analyzer</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <!-- Load OpenCV.js -->
+    <script async src="https://docs.opencv.org/4.8.0/opencv.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- [Sama seperti sebelumnya, tidak berubah] -->
+        
+        <!-- Tambah info loading OpenCV -->
+        <div id="opencvLoading" class="loading-overlay">
+            <div class="loading-content">
+                <i class="fas fa-spinner fa-spin fa-3x"></i>
+                <h3>Loading OpenCV Library...</h3>
+                <p>This may take a moment (around 10-20MB download)</p>
+                <div class="progress">
+                    <div class="progress-bar"></div>
+                </div>
+                <p id="opencvProgress">Initializing...</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="analyzer.js"></script>
+    <script>
+        // Initialize when OpenCV is ready
+        function onOpenCVReady() {
+            document.getElementById('opencvLoading').style.display = 'none';
+            const analyzer = new VideoAnalyzer();
+            analyzer.init();
+        }
+        
+        // Check if OpenCV is already loaded
+        if (typeof cv !== 'undefined') {
+            onOpenCVReady();
+        } else {
+            // Wait for OpenCV to load
+            document.addEventListener('DOMContentLoaded', function() {
+                let checkCount = 0;
+                const maxChecks = 100;
+                
+                function checkOpenCV() {
+                    if (typeof cv !== 'undefined' && cv.getBuildInformation) {
+                        document.getElementById('opencvProgress').textContent = 'OpenCV loaded!';
+                        setTimeout(onOpenCVReady, 500);
+                    } else if (checkCount < maxChecks) {
+                        checkCount++;
+                        document.getElementById('opencvProgress').textContent = 
+                            `Loading... ${checkCount * 10}%`;
+                        setTimeout(checkOpenCV, 300);
+                    } else {
+                        document.getElementById('opencvProgress').textContent = 
+                            'Failed to load OpenCV. Please refresh.';
+                    }
+                }
+                
+                checkOpenCV();
+            });
+        }
+    </script>
+</body>
+</html>
