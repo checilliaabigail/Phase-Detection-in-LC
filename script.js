@@ -385,4 +385,153 @@ class VideoAnalyzer {
                     legend: {
                         position: 'top',
                     },
-                    tool
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false
+                    }
+                },
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Time (minutes)'
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Variance'
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    createTimeline() {
+        const timeline = document.getElementById('phaseTimeline');
+        timeline.innerHTML = '';
+        
+        // Create timeline segments
+        const segmentCount = 20;
+        const segmentWidth = 100 / segmentCount;
+        
+        for (let i = 0; i < segmentCount; i++) {
+            const segment = document.createElement('div');
+            segment.className = 'timeline-segment';
+            
+            // Determine phase for this segment
+            const segmentIndex = Math.floor(i / segmentCount * this.results.length);
+            const phase = this.results[segmentIndex]?.phase;
+            
+            segment.style.width = `${segmentWidth}%`;
+            segment.style.height = '100%';
+            segment.style.backgroundColor = phase === 'CHOLESTERIC' ? 
+                'var(--cholesteric)' : 'var(--isotropic)';
+            segment.style.float = 'left';
+            segment.style.borderRight = '1px solid white';
+            
+            // Add tooltip
+            const time = (i / segmentCount * 30).toFixed(1); // 30 min total
+            segment.title = `${time} min: ${phase || 'Unknown'}`;
+            
+            timeline.appendChild(segment);
+        }
+    }
+
+    downloadCSV() {
+        if (this.results.length === 0) return;
+        
+        const csv = Papa.unparse(this.results);
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        saveAs(blob, `liquid_crystal_analysis_${Date.now()}.csv`);
+    }
+
+    downloadPlot() {
+        // Create a combined plot image
+        const canvas = document.createElement('canvas');
+        canvas.width = 1200;
+        canvas.height = 800;
+        const ctx = canvas.getContext('2d');
+        
+        // Draw white background
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Draw title
+        ctx.fillStyle = 'black';
+        ctx.font = 'bold 24px Arial';
+        ctx.fillText('Liquid Crystal Phase Analysis', 50, 50);
+        
+        // Draw summary
+        ctx.font = '16px Arial';
+        ctx.fillText(`Cholesteric: ${document.getElementById('cholestericPercent').textContent}`, 50, 100);
+        ctx.fillText(`Isotropic: ${document.getElementById('isotropicPercent').textContent}`, 50, 130);
+        
+        // Convert to blob and download
+        canvas.toBlob(blob => {
+            saveAs(blob, `analysis_plot_${Date.now()}.png`);
+        });
+    }
+
+    downloadAll() {
+        const zip = new JSZip();
+        
+        // Add CSV
+        const csv = Papa.unparse(this.results);
+        zip.file('analysis_results.csv', csv);
+        
+        // Add plot image
+        const canvas = document.createElement('canvas');
+        canvas.width = 800;
+        canvas.height = 600;
+        // ... draw on canvas ...
+        canvas.toBlob(blob => {
+            zip.file('analysis_plot.png', blob);
+            
+            // Add readme
+            const readme = `Liquid Crystal Analysis Results\nGenerated on: ${new Date().toLocaleString()}`;
+            zip.file('README.txt', readme);
+            
+            // Generate and download zip
+            zip.generateAsync({type: 'blob'}).then(content => {
+                saveAs(content, `liquid_crystal_analysis_${Date.now()}.zip`);
+            });
+        });
+    }
+
+    resetAnalysis() {
+        this.isAnalyzing = false;
+        clearInterval(this.progressInterval);
+        this.results = [];
+        
+        // Reset UI
+        document.getElementById('progressSection').classList.add('hidden');
+        document.getElementById('resultsSection').classList.add('hidden');
+        document.getElementById('analyzeBtn').disabled = false;
+        
+        // Clear charts
+        if (this.charts.contour) {
+            this.charts.contour.destroy();
+            this.charts.contour = null;
+        }
+        if (this.charts.variance) {
+            this.charts.variance.destroy();
+            this.charts.variance = null;
+        }
+        
+        // Clear file
+        this.clearFile();
+        
+        // Reset sliders
+        this.contourThreshold = 15;
+        this.varianceThreshold = 96;
+        this.samplingRate = 30;
+        this.updateSliderValues();
+        
+        // Reset slider UI
+        document.getElementById('contourThreshold').value = 15;
+        document.getElementById('varianceThreshold').value = 96;
+        document.getElementById('samplingRate').value = 30;
+    }
+}
