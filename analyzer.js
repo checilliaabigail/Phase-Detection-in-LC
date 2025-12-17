@@ -9,9 +9,9 @@ class VideoAnalyzer {
         this.progressInterval = null;
         this.startTime = null;
         
-        // PARAMETER THRESHOLD (SAMA DENGAN PYTHON)
+        // PARAMETER THRESHOLD (SAMA PERSIS DENGAN PYTHON)
         this.CONTOUR_THRESHOLD = 15;    // Jika < 15 kontur → ISOTROPIC
-        this.VARIANCE_THRESHOLD = 96;   // Jika > 96 variance → ISOTROPIC
+        this.VARIANCE_THRESHOLD = 96;   // Jika > 96 variance → ISOTROPIC (TERBALIK!)
         
         // Elements cache
         this.elements = {};
@@ -20,37 +20,21 @@ class VideoAnalyzer {
         this.canvas = document.createElement('canvas');
         this.ctx = this.canvas.getContext('2d', { willReadFrequently: true });
         
-        // OpenCV status
-        this.opencvReady = false;
-        
-        console.log('Threshold Configuration:');
-        console.log(`  CONTOUR_THRESHOLD = ${this.CONTOUR_THRESHOLD}`);
-        console.log(`    → Kontur < ${this.CONTOUR_THRESHOLD} = ISOTROPIC`);
-        console.log(`    → Kontur ≥ ${this.CONTOUR_THRESHOLD} = CHOLESTERIC`);
-        console.log(`  VARIANCE_THRESHOLD = ${this.VARIANCE_THRESHOLD}`);
-        console.log(`    → Variance < ${this.VARIANCE_THRESHOLD} = CHOLESTERIC`);
-        console.log(`    → Variance ≥ ${this.VARIANCE_THRESHOLD} = ISOTROPIC`);
+        console.log('⚙️ KONFIGURASI THRESHOLD (SAMA DENGAN PYTHON):');
+        console.log('=' .repeat(60));
+        console.log(`   CONTOUR_THRESHOLD = ${this.CONTOUR_THRESHOLD}`);
+        console.log(`     → Kontur < ${this.CONTOUR_THRESHOLD} = ISOTROPIC`);
+        console.log(`     → Kontur ≥ ${this.CONTOUR_THRESHOLD} = CHOLESTERIC`);
+        console.log(`   VARIANCE_THRESHOLD = ${this.VARIANCE_THRESHOLD}`);
+        console.log(`     → Variance < ${this.VARIANCE_THRESHOLD} = CHOLESTERIC`);
+        console.log(`     → Variance ≥ ${this.VARIANCE_THRESHOLD} = ISOTROPIC`);
+        console.log('=' .repeat(60));
     }
 
-    init() {
-        console.log('Initializing VideoAnalyzer...');
-        
-        // Cache elements
-        this.cacheElements();
-        
-        // Setup event listeners
-        this.setupEventListeners();
-        
-        // Update slider values
-        this.updateSliderValues();
-        
-        console.log('VideoAnalyzer initialized successfully');
-    }
-
-    // ... [cacheElements dan setupEventListeners sama seperti sebelumnya] ...
+    // ... [cacheElements dan setupEventListeners tetap sama] ...
 
     async startAnalysis() {
-        console.log('Starting REAL analysis...');
+        console.log('🚀 Starting REAL analysis with OpenCV...');
         
         if (!this.videoFile || this.isAnalyzing) {
             console.warn('Cannot start analysis: no file or already analyzing');
@@ -93,7 +77,7 @@ class VideoAnalyzer {
             this.showResults();
             
         } catch (error) {
-            console.error('Analysis error:', error);
+            console.error('❌ Analysis error:', error);
             this.showError('Analysis failed: ' + error.message);
         } finally {
             this.isAnalyzing = false;
@@ -105,129 +89,160 @@ class VideoAnalyzer {
     }
 
     async analyzeVideoWithOpenCV() {
-        console.log('Starting OpenCV analysis...');
+        console.log('🎬 Starting OpenCV video analysis...');
         
-        if (!this.video) {
-            this.video = document.createElement('video');
-            this.video.src = URL.createObjectURL(this.videoFile);
-            this.video.muted = true;
-            this.video.playsInline = true;
-        }
+        // Create video element
+        const video = document.createElement('video');
+        video.src = URL.createObjectURL(this.videoFile);
+        video.muted = true;
+        video.playsInline = true;
         
-        // Wait for video to load
+        // Wait for video metadata
         await new Promise((resolve, reject) => {
-            this.video.onloadedmetadata = resolve;
-            this.video.onerror = reject;
-            setTimeout(resolve, 1000); // Fallback timeout
+            video.onloadedmetadata = () => {
+                console.log('✅ Video metadata loaded');
+                resolve();
+            };
+            video.onerror = reject;
+            setTimeout(() => {
+                console.log('⚠️ Video load timeout, proceeding anyway');
+                resolve();
+            }, 3000);
         });
         
-        // Set canvas size to video size
-        this.canvas.width = this.video.videoWidth;
-        this.canvas.height = this.video.videoHeight;
+        // Setup canvas
+        this.canvas.width = video.videoWidth;
+        this.canvas.height = video.videoHeight;
         
-        const fps = 30; // Assuming 30 FPS
-        const duration = this.video.duration;
+        const duration = video.duration;
+        const fps = 30; // Default assumption
         this.totalFrames = Math.floor(duration * fps);
-        
-        console.log(`Video info: ${this.video.videoWidth}x${this.video.videoHeight}, Duration: ${duration}s, Estimated frames: ${this.totalFrames}`);
-        
-        // Create electrode mask (once, from first frame)
-        let mask = null;
-        
-        // Process frames with sampling
         const samplingRate = this.samplingRate || 30;
-        const timeIncrement = samplingRate / fps;
         
+        console.log(`📊 Video Info:`);
+        console.log(`   Size: ${video.videoWidth}x${video.videoHeight}`);
+        console.log(`   Duration: ${duration.toFixed(2)}s`);
+        console.log(`   Estimated FPS: ${fps}`);
+        console.log(`   Total frames: ~${this.totalFrames}`);
+        console.log(`   Sampling rate: ${samplingRate} (1 frame every ${samplingRate} frames)`);
+        
+        // Process first frame to create mask
+        console.log('🛠️ Creating electrode mask from first frame...');
+        video.currentTime = 0;
+        
+        const mask = await new Promise((resolve) => {
+            const onFirstFrame = () => {
+                video.removeEventListener('seeked', onFirstFrame);
+                
+                this.ctx.drawImage(video, 0, 0, this.canvas.width, this.canvas.height);
+                const imageData = this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
+                
+                try {
+                    // Create mask from first frame
+                    const src = cv.matFromImageData(imageData);
+                    const mask = this.createElectrodeMask(src);
+                    src.delete();
+                    
+                    console.log('✅ Electrode mask created successfully');
+                    resolve(mask);
+                } catch (error) {
+                    console.error('❌ Failed to create mask:', error);
+                    // Create default mask (all white)
+                    const mask = new cv.Mat.ones(this.canvas.height, this.canvas.width, cv.CV_8UC1);
+                    cv.multiply(mask, new cv.Scalar(255), mask);
+                    resolve(mask);
+                }
+            };
+            
+            video.addEventListener('seeked', onFirstFrame);
+        });
+        
+        // Process frames at sampling intervals
+        const timeIncrement = samplingRate / fps;
         let currentTime = 0;
-        let frameIndex = 0;
+        let framesProcessed = 0;
+        
+        console.log('🔍 Starting frame processing...');
         
         while (currentTime < duration && this.isAnalyzing) {
             // Seek to current time
-            this.video.currentTime = currentTime;
+            video.currentTime = currentTime;
             
             await new Promise((resolve) => {
                 const onSeeked = () => {
-                    this.video.removeEventListener('seeked', onSeeked);
+                    video.removeEventListener('seeked', onSeeked);
                     
-                    // Draw frame to canvas
-                    this.ctx.drawImage(this.video, 0, 0, this.canvas.width, this.canvas.height);
-                    
-                    // Get image data
-                    const imageData = this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
-                    
-                    // Process the frame
                     try {
-                        const result = this.processFrameWithOpenCV(imageData, currentTime, frameIndex, mask);
+                        // Draw frame
+                        this.ctx.drawImage(video, 0, 0, this.canvas.width, this.canvas.height);
+                        const imageData = this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
+                        
+                        // Convert to OpenCV Mat
+                        const src = cv.matFromImageData(imageData);
+                        
+                        // Process frame
+                        const result = this.processSingleFrame(src, mask, currentTime, framesProcessed);
                         this.results.push(result);
                         
-                        // Update mask from first frame
-                        if (mask === null && result.mask) {
-                            mask = result.mask;
-                        }
+                        // Cleanup
+                        src.delete();
+                        
+                        framesProcessed++;
                         
                     } catch (error) {
-                        console.error('Error processing frame:', error);
+                        console.error(`❌ Error processing frame at ${currentTime}s:`, error);
                     }
                     
                     // Update progress
                     const progress = (currentTime / duration) * 100;
-                    this.updateProgress(progress, frameIndex, this.totalFrames);
+                    this.updateProgress(progress, framesProcessed, Math.floor(duration / timeIncrement));
                     
-                    frameIndex++;
                     resolve();
                 };
                 
-                this.video.addEventListener('seeked', onSeeked);
+                video.addEventListener('seeked', onSeeked);
             });
             
             currentTime += timeIncrement;
             
-            // Yield to prevent blocking
-            if (frameIndex % 5 === 0) {
+            // Yield to UI every 5 frames
+            if (framesProcessed % 5 === 0) {
                 await new Promise(resolve => setTimeout(resolve, 0));
             }
         }
         
-        console.log(`Analysis completed. Processed ${this.results.length} frames.`);
+        // Cleanup
+        mask.delete();
+        URL.revokeObjectURL(video.src);
+        
+        console.log(`✅ Analysis completed. Processed ${framesProcessed} frames.`);
+        console.log(`📈 Results: ${this.results.length} data points`);
     }
 
-    processFrameWithOpenCV(imageData, timestamp, frameIndex, existingMask = null) {
+    processSingleFrame(frameMat, mask, timestamp, frameIndex) {
         try {
-            // Convert ImageData to OpenCV Mat
-            const src = cv.matFromImageData(imageData);
+            // ===========================================================
+            // 1. APPLY MASK (SAMA DENGAN PYTHON)
+            // ===========================================================
+            const maskedFrame = this.applyMask(frameMat, mask);
             
             // ===========================================================
-            // CREATE ELECTRODE MASK (SAMA DENGAN PYTHON)
+            // 2. PREPROCESSING - DETECT AND CLASSIFY (KONTUR)
             // ===========================================================
-            let mask;
-            if (existingMask) {
-                mask = existingMask.clone();
-            } else {
-                mask = this.createElectrodeMask(src);
-            }
+            const { numContours, phaseContour } = this.detectAndClassifyContours(maskedFrame, mask);
             
             // ===========================================================
-            // APPLY MASK (SAMA DENGAN PYTHON)
-            // ===========================================================
-            const maskedFrame = this.applyMask(src, mask);
-            
-            // ===========================================================
-            // DETECT AND CLASSIFY (SAMA DENGAN PYTHON)
-            // ===========================================================
-            const processed = this.preprocessImproved(maskedFrame, mask);
-            const { numContours, phaseContour } = this.detectAndClassify(processed, mask);
-            
-            // ===========================================================
-            // VARIANCE-BASED DETECTION (SAMA DENGAN PYTHON)
+            // 3. VARIANCE CALCULATION (SAMA DENGAN PYTHON)
             // ===========================================================
             const { variance, stdDev } = this.calculateVariance(maskedFrame, mask);
             
-            // PERBAIKAN: Klasifikasi berdasarkan variance (TERBALIK!)
+            // ===========================================================
+            // 4. CLASSIFY BY VARIANCE (TERBALIK - SAMA DENGAN PYTHON)
+            // ===========================================================
             const phaseVariance = variance >= this.VARIANCE_THRESHOLD ? "ISOTROPIC" : "CHOLESTERIC";
             
-            // Cleanup OpenCV mats
-            src.delete();
-            if (processed) processed.delete();
+            // Cleanup
+            maskedFrame.delete();
             
             return {
                 frame_number: frameIndex,
@@ -235,253 +250,270 @@ class VideoAnalyzer {
                 timestamp_minutes: timestamp / 60,
                 num_contours: numContours,
                 phase_contour: phaseContour,
-                variance: variance,
-                std_dev: stdDev,
-                phase_variance: phaseVariance,
-                mask: mask
+                variance: parseFloat(variance.toFixed(2)),
+                std_dev: parseFloat(stdDev.toFixed(2)),
+                phase_variance: phaseVariance
             };
             
         } catch (error) {
-            console.error('OpenCV processing error:', error);
+            console.error('Error in processSingleFrame:', error);
             
-            // Return fallback data
             return {
                 frame_number: frameIndex,
                 timestamp_seconds: timestamp,
                 timestamp_minutes: timestamp / 60,
                 num_contours: 0,
-                phase_contour: 'ERROR',
+                phase_contour: "ERROR",
                 variance: 0,
                 std_dev: 0,
-                phase_variance: 'ERROR'
+                phase_variance: "ERROR"
             };
         }
     }
 
     // ===========================================================
-    // 1️⃣ CREATE ELECTRODE MASK (SAMA DENGAN PYTHON)
+    // CREATE ELECTRODE MASK (SAMA PERSIS DENGAN PYTHON)
     // ===========================================================
     createElectrodeMask(frame) {
-        const h = frame.rows;
-        const w = frame.cols;
-        
-        // Create white mask
-        const mask = new cv.Mat.ones(h, w, cv.CV_8UC1);
-        cv.multiply(mask, new cv.Scalar(255), mask);
-        
-        // Convert to grayscale
-        const gray = new cv.Mat();
-        cv.cvtColor(frame, gray, cv.COLOR_RGBA2GRAY);
-        
-        // Threshold for bright areas (electrodes)
-        const brightMask = new cv.Mat();
-        cv.threshold(gray, brightMask, 200, 255, cv.THRESH_BINARY);
-        
-        // Morphological operations
-        const kernel = cv.Mat.ones(15, 15, cv.CV_8U);
-        cv.morphologyEx(brightMask, brightMask, cv.MORPH_CLOSE, kernel, new cv.Point(-1, -1), 3);
-        
-        // Find contours
-        const contours = new cv.MatVector();
-        const hierarchy = new cv.Mat();
-        cv.findContours(brightMask, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
-        
-        // Draw black rectangles on mask for electrode areas
-        for (let i = 0; i < contours.size(); i++) {
-            const contour = contours.get(i);
-            const area = cv.contourArea(contour);
+        try {
+            const h = frame.rows;
+            const w = frame.cols;
             
-            if (area > 5000) {
-                const rect = cv.boundingRect(contour);
-                const padding = 10;
+            // Create white mask (255)
+            const mask = new cv.Mat(h, w, cv.CV_8UC1);
+            mask.setTo(new cv.Scalar(255));
+            
+            // Convert to grayscale
+            const gray = new cv.Mat();
+            cv.cvtColor(frame, gray, cv.COLOR_RGBA2GRAY);
+            
+            // Threshold for bright areas (electrodes)
+            const brightMask = new cv.Mat();
+            cv.threshold(gray, brightMask, 200, 255, cv.THRESH_BINARY);
+            
+            // Morphological closing
+            const kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(15, 15));
+            cv.morphologyEx(brightMask, brightMask, cv.MORPH_CLOSE, kernel);
+            
+            // Find contours
+            const contours = new cv.MatVector();
+            const hierarchy = new cv.Mat();
+            cv.findContours(brightMask, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+            
+            // Draw black rectangles for electrodes
+            for (let i = 0; i < contours.size(); i++) {
+                const contour = contours.get(i);
+                const area = cv.contourArea(contour);
                 
-                const xStart = Math.max(0, rect.x - padding);
-                const yStart = Math.max(0, rect.y - padding);
-                const xEnd = Math.min(w, rect.x + rect.width + padding);
-                const yEnd = Math.min(h, rect.y + rect.height + padding);
-                
-                // Draw black rectangle on mask
-                const roi = mask.roi(new cv.Rect(xStart, yStart, xEnd - xStart, yEnd - yStart));
-                roi.setTo(new cv.Scalar(0));
-                roi.delete();
+                if (area > 5000) {
+                    const rect = cv.boundingRect(contour);
+                    const padding = 10;
+                    
+                    const xStart = Math.max(0, rect.x - padding);
+                    const yStart = Math.max(0, rect.y - padding);
+                    const xEnd = Math.min(w, rect.x + rect.width + padding);
+                    const yEnd = Math.min(h, rect.y + rect.height + padding);
+                    
+                    // Create rectangle ROI and set to black (0)
+                    const rectMask = new cv.Mat(mask, new cv.Rect(xStart, yStart, xEnd - xStart, yEnd - yStart));
+                    rectMask.setTo(new cv.Scalar(0));
+                    rectMask.delete();
+                }
             }
+            
+            // Cleanup
+            gray.delete();
+            brightMask.delete();
+            kernel.delete();
+            contours.delete();
+            hierarchy.delete();
+            
+            return mask;
+            
+        } catch (error) {
+            console.error('Error in createElectrodeMask:', error);
+            // Return default mask (all white)
+            const mask = new cv.Mat.ones(frame.rows, frame.cols, cv.CV_8UC1);
+            cv.multiply(mask, new cv.Scalar(255), mask);
+            return mask;
         }
-        
-        // Cleanup
-        gray.delete();
-        brightMask.delete();
-        kernel.delete();
-        contours.delete();
-        hierarchy.delete();
-        
-        return mask;
     }
 
     // ===========================================================
-    // 2️⃣ APPLY MASK (SAMA DENGAN PYTHON)
+    // APPLY MASK (SAMA PERSIS DENGAN PYTHON)
     // ===========================================================
     applyMask(frame, mask) {
-        const result = new cv.Mat(frame.rows, frame.cols, frame.type());
+        const h = frame.rows;
+        const w = frame.cols;
         
         // Create white background
+        const result = new cv.Mat(h, w, cv.CV_8UC4);
         result.setTo(new cv.Scalar(255, 255, 255, 255));
         
-        // Apply mask: where mask > 0, copy from frame
-        const mask3ch = new cv.Mat();
+        // Convert mask to 4 channels
+        const mask4ch = new cv.Mat();
         const channels = new cv.MatVector();
-        channels.push_back(mask);
-        channels.push_back(mask);
-        channels.push_back(mask);
-        cv.merge(channels, mask3ch);
+        for (let i = 0; i < 4; i++) {
+            channels.push_back(mask);
+        }
+        cv.merge(channels, mask4ch);
         
+        // Copy frame pixels where mask is white
         frame.copyTo(result, mask);
         
         // Cleanup
-        mask3ch.delete();
+        mask4ch.delete();
         channels.delete();
         
         return result;
     }
 
     // ===========================================================
-    // 3️⃣ IMPROVED PREPROCESSING (SAMA DENGAN PYTHON)
+    // DETECT AND CLASSIFY - KONTUR (SAMA PERSIS DENGAN PYTHON)
     // ===========================================================
-    preprocessImproved(frame, mask) {
-        // Convert to grayscale
-        const gray = new cv.Mat();
-        cv.cvtColor(frame, gray, cv.COLOR_RGBA2GRAY);
-        
-        // Apply mask
-        const grayMasked = new cv.Mat();
-        cv.bitwise_and(gray, gray, grayMasked, mask);
-        
-        // Set masked areas to white
-        for (let i = 0; i < grayMasked.rows; i++) {
-            for (let j = 0; j < grayMasked.cols; j++) {
-                if (mask.ucharPtr(i, j)[0] === 0) {
-                    grayMasked.ucharPtr(i, j)[0] = 255;
+    detectAndClassifyContours(maskedFrame, mask) {
+        try {
+            // Convert to grayscale
+            const gray = new cv.Mat();
+            cv.cvtColor(maskedFrame, gray, cv.COLOR_RGBA2GRAY);
+            
+            // Apply mask
+            const grayMasked = new cv.Mat();
+            cv.bitwise_and(gray, gray, grayMasked, mask);
+            
+            // Set masked areas to white
+            for (let i = 0; i < mask.rows; i++) {
+                for (let j = 0; j < mask.cols; j++) {
+                    if (mask.data[i * mask.cols + j] === 0) {
+                        grayMasked.data[i * grayMasked.cols + j] = 255;
+                    }
                 }
             }
-        }
-        
-        // Gaussian Blur
-        const blurred = new cv.Mat();
-        cv.GaussianBlur(grayMasked, blurred, new cv.Size(3, 3), 0);
-        
-        // CLAHE untuk kontras lokal
-        const clahe = new cv.CLAHE();
-        clahe.clipLimit = 3.0;
-        clahe.tilesGridSize = new cv.Size(8, 8);
-        
-        const enhanced = new cv.Mat();
-        clahe.apply(blurred, enhanced);
-        
-        // Adaptive Threshold
-        const thresh = new cv.Mat();
-        cv.adaptiveThreshold(enhanced, thresh, 255, 
-            cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 15, 3);
-        
-        // Morphological operations
-        const kernelSmall = cv.Mat.ones(2, 2, cv.CV_8U);
-        cv.morphologyEx(thresh, thresh, cv.MORPH_OPEN, kernelSmall);
-        
-        const kernelSmall2 = cv.Mat.ones(2, 2, cv.CV_8U);
-        cv.morphologyEx(thresh, thresh, cv.MORPH_CLOSE, kernelSmall2, new cv.Point(-1, -1), 2);
-        
-        // Apply mask
-        cv.bitwise_and(thresh, thresh, thresh, mask);
-        
-        // Cleanup
-        gray.delete();
-        grayMasked.delete();
-        blurred.delete();
-        enhanced.delete();
-        kernelSmall.delete();
-        kernelSmall2.delete();
-        
-        return thresh;
-    }
-
-    // ===========================================================
-    // 4️⃣ DETECT AND CLASSIFY (SAMA DENGAN PYTHON)
-    // ===========================================================
-    detectAndClassify(thresholded, mask) {
-        // Find contours
-        const contours = new cv.MatVector();
-        const hierarchy = new cv.Mat();
-        cv.findContours(thresholded, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
-        
-        // Filter contours
-        let validContours = 0;
-        for (let i = 0; i < contours.size(); i++) {
-            const contour = contours.get(i);
-            const area = cv.contourArea(contour);
             
-            if (area > 20 && area < 2000) {
-                validContours++;
+            // Gaussian blur
+            const blurred = new cv.Mat();
+            cv.GaussianBlur(grayMasked, blurred, new cv.Size(3, 3), 0);
+            
+            // Adaptive threshold
+            const thresh = new cv.Mat();
+            cv.adaptiveThreshold(blurred, thresh, 255, 
+                cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 15, 3);
+            
+            // Morphological operations
+            const kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(2, 2));
+            
+            // Opening
+            const opened = new cv.Mat();
+            cv.morphologyEx(thresh, opened, cv.MORPH_OPEN, kernel);
+            
+            // Closing (2 iterations)
+            const closed = new cv.Mat();
+            cv.morphologyEx(opened, closed, cv.MORPH_CLOSE, kernel, new cv.Point(-1, -1), 2);
+            
+            // Apply mask again
+            cv.bitwise_and(closed, closed, closed, mask);
+            
+            // Find contours
+            const contours = new cv.MatVector();
+            const hierarchy = new cv.Mat();
+            cv.findContours(closed, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+            
+            // Filter contours by area
+            let validContours = 0;
+            for (let i = 0; i < contours.size(); i++) {
+                const contour = contours.get(i);
+                const area = cv.contourArea(contour);
+                
+                if (area > 20 && area < 2000) {
+                    validContours++;
+                }
             }
+            
+            // Classify based on threshold (SAMA DENGAN PYTHON)
+            const phase = validContours < this.CONTOUR_THRESHOLD ? "ISOTROPIC" : "CHOLESTERIC";
+            
+            // Cleanup
+            gray.delete();
+            grayMasked.delete();
+            blurred.delete();
+            thresh.delete();
+            kernel.delete();
+            opened.delete();
+            closed.delete();
+            contours.delete();
+            hierarchy.delete();
+            
+            return {
+                numContours: validContours,
+                phaseContour: phase
+            };
+            
+        } catch (error) {
+            console.error('Error in detectAndClassifyContours:', error);
+            return {
+                numContours: 0,
+                phaseContour: "ERROR"
+            };
         }
-        
-        // Klasifikasi dengan threshold (SAMA DENGAN PYTHON)
-        const phase = validContours < this.CONTOUR_THRESHOLD ? "ISOTROPIC" : "CHOLESTERIC";
-        
-        // Cleanup
-        contours.delete();
-        hierarchy.delete();
-        
-        return {
-            numContours: validContours,
-            phaseContour: phase
-        };
     }
 
     // ===========================================================
-    // 5️⃣ CALCULATE VARIANCE (SAMA DENGAN PYTHON)
+    // CALCULATE VARIANCE (SAMA PERSIS DENGAN PYTHON)
     // ===========================================================
     calculateVariance(frame, mask) {
-        // Convert to grayscale
-        const gray = new cv.Mat();
-        cv.cvtColor(frame, gray, cv.COLOR_RGBA2GRAY);
-        
-        // Apply mask
-        const grayMasked = new cv.Mat();
-        cv.bitwise_and(gray, gray, grayMasked, mask);
-        
-        // Collect non-zero pixels (LC pixels)
-        const lcPixels = [];
-        for (let i = 0; i < grayMasked.rows; i++) {
-            for (let j = 0; j < grayMasked.cols; j++) {
-                if (mask.ucharPtr(i, j)[0] > 0) {
-                    lcPixels.push(grayMasked.ucharPtr(i, j)[0]);
+        try {
+            // Convert to grayscale
+            const gray = new cv.Mat();
+            cv.cvtColor(frame, gray, cv.COLOR_RGBA2GRAY);
+            
+            // Get LC pixels (where mask > 0)
+            const lcPixels = [];
+            const maskData = mask.data;
+            const grayData = gray.data;
+            
+            for (let i = 0; i < mask.rows; i++) {
+                for (let j = 0; j < mask.cols; j++) {
+                    const idx = i * mask.cols + j;
+                    if (maskData[idx] > 0) { // Mask is white
+                        lcPixels.push(grayData[idx]);
+                    }
                 }
             }
-        }
-        
-        // Calculate variance and std dev
-        let variance = 0;
-        let stdDev = 0;
-        
-        if (lcPixels.length > 0) {
-            // Calculate mean
-            const sum = lcPixels.reduce((a, b) => a + b, 0);
-            const mean = sum / lcPixels.length;
             
-            // Calculate variance
-            const squaredDiffs = lcPixels.map(pixel => Math.pow(pixel - mean, 2));
-            const sumSquaredDiffs = squaredDiffs.reduce((a, b) => a + b, 0);
-            variance = sumSquaredDiffs / lcPixels.length;
-            stdDev = Math.sqrt(variance);
+            // Calculate variance and std dev
+            let variance = 0;
+            let stdDev = 0;
+            
+            if (lcPixels.length > 0) {
+                // Calculate mean
+                const sum = lcPixels.reduce((a, b) => a + b, 0);
+                const mean = sum / lcPixels.length;
+                
+                // Calculate variance
+                let sumSquaredDiff = 0;
+                for (const pixel of lcPixels) {
+                    sumSquaredDiff += Math.pow(pixel - mean, 2);
+                }
+                variance = sumSquaredDiff / lcPixels.length;
+                stdDev = Math.sqrt(variance);
+            }
+            
+            // Cleanup
+            gray.delete();
+            
+            return {
+                variance: variance,
+                stdDev: stdDev
+            };
+            
+        } catch (error) {
+            console.error('Error in calculateVariance:', error);
+            return {
+                variance: 0,
+                stdDev: 0
+            };
         }
-        
-        // Cleanup
-        gray.delete();
-        grayMasked.delete();
-        
-        return {
-            variance: variance,
-            stdDev: stdDev
-        };
     }
 
-    // ... [sisanya sama seperti sebelumnya: updateProgress, showResults, dll] ...
+    // ... [sisanya: showResults, createCharts, dll tetap sama] ...
 }
