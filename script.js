@@ -1,200 +1,411 @@
-// ============================================================
-// BPLC Phase Detection - Main Script
-// Deteksi fase Blue Phase Liquid Crystal
-// ============================================================
+// ============================================================================
+// BPLC Phase Detection - JavaScript Implementation
+// Deteksi fase Cholesteric → Isotropic pada Blue Phase Liquid Crystal
+// ============================================================================
 
-let video, canvas, ctx;
+// 🎯 PARAMETER THRESHOLD (sama dengan kode Python)
+const CONTOUR_THRESHOLD = 15;  // < 15 = ISOTROPIC, ≥ 15 = CHOLESTERIC
+const VARIANCE_THRESHOLD = 96;  // < 96 = CHOLESTERIC, ≥ 96 = ISOTROPIC
+const SAMPLING_RATE = 30;       // Analisis 1 frame setiap 30 frame
+
+// Global variables
+let videoElement = document.getElementById('video');
+let canvas = document.getElementById('canvas');
+let ctx = canvas.getContext('2d');
 let analysisResults = [];
-let chartInstance = null;
+let videoInfo = {};
+let myChart = null;
 
-// ============================================================
-// INITIALIZATION
-// ============================================================
-window.addEventListener('load', () => {
-  video = document.getElementById('video');
-  canvas = document.getElementById('canvas');
-  ctx = canvas.getContext('2d');
-  
-  // Event listeners
-  document.getElementById('videoFile').addEventListener('change', handleFileSelect);
-  document.getElementById('processBtn').addEventListener('click', startAnalysis);
-  document.getElementById('downloadBtn').addEventListener('click', downloadCSV);
-  document.getElementById('resetBtn').addEventListener('click', resetApp);
-});
-
-// ============================================================
-// FILE HANDLING
-// ============================================================
-function handleFileSelect(e) {
+// ============================================================================
+// EVENT LISTENERS
+// ============================================================================
+document.getElementById('videoFile').addEventListener('change', function(e) {
   const file = e.target.files[0];
   if (file) {
     const url = URL.createObjectURL(file);
-    video.src = url;
+    videoElement.src = url;
+    videoElement.load();
     document.getElementById('processBtn').disabled = false;
   }
-}
+});
 
-// ============================================================
-// MAIN ANALYSIS PROCESS
-// ============================================================
+document.getElementById('processBtn').addEventListener('click', function() {
+  startAnalysis();
+});
+
+document.getElementById('resetBtn').addEventListener('click', function() {
+  resetAnalysis();
+});
+
+document.getElementById('downloadBtn').addEventListener('click', function() {
+  downloadCSV();
+});
+
+// ============================================================================
+// 1️⃣ FUNGSI UTAMA: ANALISIS VIDEO
+// ============================================================================
 async function startAnalysis() {
+  // Reset
   analysisResults = [];
+  
+  // Disable button
+  document.getElementById('processBtn').disabled = true;
+  
+  // Show processing area
   document.getElementById('processingArea').style.display = 'block';
   document.getElementById('progressContainer').style.display = 'block';
   document.getElementById('statusBox').style.display = 'block';
-  document.getElementById('resultsSection').style.display = 'none';
-  document.getElementById('processBtn').disabled = true;
   
-  // Load and prepare video
-  await video.play();
-  video.pause();
+  // Get video info
+  await getVideoInfo();
   
-  const fps = 30; // Estimate, could be read from video metadata
-  const duration = video.duration;
-  const totalFrames = Math.floor(duration * fps);
-  const frameInterval = 1; // Process every frame
+  // Start processing
+  await processVideo();
   
-  document.getElementById('totalFrames').textContent = totalFrames;
+  // Show results
+  displayResults();
+}
+
+// ============================================================================
+// 2️⃣ GET VIDEO INFO
+// ============================================================================
+function getVideoInfo() {
+  return new Promise((resolve) => {
+    videoElement.addEventListener('loadedmetadata', function() {
+      videoInfo = {
+        duration: videoElement.duration,
+        width: videoElement.videoWidth,
+        height: videoElement.videoHeight,
+        fps: 30 // Estimasi, browser tidak menyediakan FPS langsung
+      };
+      
+      // Update canvas size
+      canvas.width = videoInfo.width;
+      canvas.height = videoInfo.height;
+      
+      // Calculate total frames
+      videoInfo.totalFrames = Math.floor(videoInfo.fps * videoInfo.duration);
+      
+      document.getElementById('totalFrames').textContent = videoInfo.totalFrames;
+      
+      resolve();
+    }, { once: true });
+  });
+}
+
+// ============================================================================
+// 3️⃣ PROCESS VIDEO FRAME BY FRAME
+// ============================================================================
+async function processVideo() {
+  const totalFramesToAnalyze = Math.floor(videoInfo.totalFrames / SAMPLING_RATE);
+  let analyzedFrames = 0;
+  let currentFrame = 0;
   
-  // Set canvas size
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
+  // Create electrode mask (dari frame pertama)
+  videoElement.currentTime = 0;
+  await waitForSeek();
+  ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+  const firstFrameData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const mask = createElectrodeMask(firstFrameData);
   
-  let frameCount = 0;
+  // Reset video
+  videoElement.currentTime = 0;
   
-  // Main processing loop
-  const processFrame = () => {
-    if (video.currentTime >= duration) {
-      finishAnalysis();
-      return;
-    }
+  // Process frames
+  for (let i = 0; i < videoInfo.totalFrames; i += SAMPLING_RATE) {
+    currentFrame = i;
+    const timestamp = i / videoInfo.fps;
     
-    // Draw current frame to canvas
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    // Seek to frame
+    videoElement.currentTime = timestamp;
+    await waitForSeek();
+    
+    // Draw frame to canvas
+    ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     
+    // Apply mask
+    const maskedImageData = applyMask(imageData, mask);
+    
     // Analyze frame
-    const result = analyzeFrame(imageData, frameCount, video.currentTime);
+    const result = analyzeFrame(maskedImageData, mask, currentFrame, timestamp);
     analysisResults.push(result);
     
-    // Update UI
-    updateProgress(frameCount, totalFrames, result);
+    analyzedFrames++;
     
-    frameCount++;
-    video.currentTime += frameInterval / fps;
+    // Update progress
+    const progress = (analyzedFrames / totalFramesToAnalyze) * 100;
+    document.getElementById('progressFill').style.width = progress + '%';
+    document.getElementById('progressFill').textContent = Math.round(progress) + '%';
+    document.getElementById('currentFrame').textContent = currentFrame;
+    document.getElementById('currentPhase').textContent = result.phase_contour;
+    document.getElementById('currentContours').textContent = result.num_contours;
     
-    // Continue processing
-    setTimeout(processFrame, 1);
-  };
-  
-  processFrame();
+    // Small delay to allow UI update
+    await new Promise(resolve => setTimeout(resolve, 10));
+  }
 }
 
-// ============================================================
-// FRAME ANALYSIS
-// ============================================================
-function analyzeFrame(imageData, frameNumber, timestamp) {
-  const data = imageData.data;
+// ============================================================================
+// 4️⃣ CREATE ELECTRODE MASK
+// ============================================================================
+function createElectrodeMask(imageData) {
   const width = imageData.width;
   const height = imageData.height;
+  const data = imageData.data;
   
-  // Step 1: Create mask to remove electrode area
-  const mask = createElectrodeMask(data, width, height);
-  
-  // Step 2: Apply preprocessing
-  const processed = preprocessFrame(data, width, height, mask);
-  
-  // Step 3: Count contours (simplified version)
-  const contours = countContours(processed, width, height);
-  
-  // Step 4: Simple classification
-  // Rule: 0 contours = isotropic, >0 contours = cholesteric
-  const phase = contours === 0 ? 'isotropic' : 'cholesteric';
-  
-  return {
-    frame: frameNumber,
-    time_sec: timestamp,
-    contours: contours,
-    phase: phase
-  };
-}
-
-// ============================================================
-// ELECTRODE MASKING
-// ============================================================
-function createElectrodeMask(data, width, height) {
-  const mask = new Uint8Array(width * height);
-  
-  // Detect bright areas (electrode regions with white/pink background)
-  // These areas typically have very high brightness values
+  // Convert to grayscale
+  const gray = new Uint8Array(width * height);
   for (let i = 0; i < data.length; i += 4) {
-    const r = data[i];
-    const g = data[i + 1];
-    const b = data[i + 2];
-    
-    // Convert to grayscale
-    const gray = 0.299 * r + 0.587 * g + 0.114 * b;
-    
-    const pixelIndex = i / 4;
-    
-    // If very bright (>200), mark as electrode area (0)
-    // Otherwise, keep as liquid crystal area (255)
-    mask[pixelIndex] = gray > 200 ? 0 : 255;
+    const idx = i / 4;
+    gray[idx] = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
   }
   
-  return mask;
-}
-
-// ============================================================
-// PREPROCESSING
-// ============================================================
-function preprocessFrame(data, width, height, mask) {
-  const processed = new Uint8Array(width * height);
+  // Create mask: 1 = valid area, 0 = electrode area
+  const mask = new Uint8Array(width * height);
+  mask.fill(1);
   
-  // Convert to grayscale and apply mask
-  for (let i = 0; i < data.length; i += 4) {
-    const pixelIndex = i / 4;
-    
-    if (mask[pixelIndex] === 0) {
-      // Masked area (electrode) -> set to white
-      processed[pixelIndex] = 255;
-    } else {
-      // Liquid crystal area -> convert to grayscale
-      const r = data[i];
-      const g = data[i + 1];
-      const b = data[i + 2];
-      processed[pixelIndex] = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+  // Threshold bright areas (electrodes)
+  for (let i = 0; i < gray.length; i++) {
+    if (gray[i] > 200) {
+      mask[i] = 0;
     }
   }
   
-  // Apply simple threshold
-  const threshold = 128;
-  for (let i = 0; i < processed.length; i++) {
-    processed[i] = processed[i] < threshold ? 0 : 255;
-  }
+  // Morphological closing (simplified)
+  const radius = 7;
+  const morphed = morphologicalClose(mask, width, height, radius);
   
-  return processed;
+  return morphed;
 }
 
-// ============================================================
-// CONTOUR COUNTING
-// ============================================================
-function countContours(processed, width, height) {
-  let contourCount = 0;
-  const visited = new Uint8Array(width * height);
+// ============================================================================
+// 5️⃣ MORPHOLOGICAL OPERATIONS
+// ============================================================================
+function morphologicalClose(mask, width, height, radius) {
+  // Dilate then erode
+  let dilated = dilate(mask, width, height, radius);
+  let eroded = erode(dilated, width, height, radius);
+  return eroded;
+}
+
+function dilate(mask, width, height, radius) {
+  const result = new Uint8Array(width * height);
   
-  // Scan through image to find contours
-  for (let y = 1; y < height - 1; y++) {
-    for (let x = 1; x < width - 1; x++) {
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      let maxVal = 0;
+      
+      for (let dy = -radius; dy <= radius; dy++) {
+        for (let dx = -radius; dx <= radius; dx++) {
+          const ny = y + dy;
+          const nx = x + dx;
+          
+          if (ny >= 0 && ny < height && nx >= 0 && nx < width) {
+            const idx = ny * width + nx;
+            if (mask[idx] > maxVal) maxVal = mask[idx];
+          }
+        }
+      }
+      
+      result[y * width + x] = maxVal;
+    }
+  }
+  
+  return result;
+}
+
+function erode(mask, width, height, radius) {
+  const result = new Uint8Array(width * height);
+  
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      let minVal = 255;
+      
+      for (let dy = -radius; dy <= radius; dy++) {
+        for (let dx = -radius; dx <= radius; dx++) {
+          const ny = y + dy;
+          const nx = x + dx;
+          
+          if (ny >= 0 && ny < height && nx >= 0 && nx < width) {
+            const idx = ny * width + nx;
+            if (mask[idx] < minVal) minVal = mask[idx];
+          }
+        }
+      }
+      
+      result[y * width + x] = minVal;
+    }
+  }
+  
+  return result;
+}
+
+// ============================================================================
+// 6️⃣ APPLY MASK
+// ============================================================================
+function applyMask(imageData, mask) {
+  const data = imageData.data;
+  const maskedData = new ImageData(
+    new Uint8ClampedArray(data),
+    imageData.width,
+    imageData.height
+  );
+  
+  for (let i = 0; i < mask.length; i++) {
+    if (mask[i] === 0) {
+      // Set to white background
+      maskedData.data[i * 4] = 255;     // R
+      maskedData.data[i * 4 + 1] = 255; // G
+      maskedData.data[i * 4 + 2] = 255; // B
+    }
+  }
+  
+  return maskedData;
+}
+
+// ============================================================================
+// 7️⃣ ANALYZE FRAME
+// ============================================================================
+function analyzeFrame(imageData, mask, frameNumber, timestamp) {
+  // Preprocessing
+  const processed = preprocessFrame(imageData, mask);
+  
+  // Detect contours
+  const numContours = detectContours(processed, mask);
+  
+  // Calculate variance
+  const variance = calculateVariance(imageData, mask);
+  
+  // Classify phases
+  const phaseContour = numContours < CONTOUR_THRESHOLD ? "ISOTROPIC" : "CHOLESTERIC";
+  const phaseVariance = variance >= VARIANCE_THRESHOLD ? "ISOTROPIC" : "CHOLESTERIC";
+  
+  return {
+    frame_number: frameNumber,
+    timestamp_seconds: timestamp,
+    timestamp_minutes: timestamp / 60,
+    num_contours: numContours,
+    phase_contour: phaseContour,
+    variance: variance,
+    phase_variance: phaseVariance
+  };
+}
+
+// ============================================================================
+// 8️⃣ PREPROCESSING
+// ============================================================================
+function preprocessFrame(imageData, mask) {
+  const width = imageData.width;
+  const height = imageData.height;
+  const data = imageData.data;
+  
+  // Convert to grayscale
+  const gray = new Uint8Array(width * height);
+  for (let i = 0; i < data.length; i += 4) {
+    const idx = i / 4;
+    if (mask[idx] === 1) {
+      gray[idx] = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+    } else {
+      gray[idx] = 255; // White background
+    }
+  }
+  
+  // Gaussian blur (simplified)
+  const blurred = gaussianBlur(gray, width, height, 3);
+  
+  // Adaptive threshold (simplified)
+  const threshold = adaptiveThreshold(blurred, width, height, 15);
+  
+  return threshold;
+}
+
+// ============================================================================
+// 9️⃣ GAUSSIAN BLUR
+// ============================================================================
+function gaussianBlur(gray, width, height, kernelSize) {
+  const result = new Uint8Array(width * height);
+  const radius = Math.floor(kernelSize / 2);
+  
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      let sum = 0;
+      let count = 0;
+      
+      for (let dy = -radius; dy <= radius; dy++) {
+        for (let dx = -radius; dx <= radius; dx++) {
+          const ny = y + dy;
+          const nx = x + dx;
+          
+          if (ny >= 0 && ny < height && nx >= 0 && nx < width) {
+            sum += gray[ny * width + nx];
+            count++;
+          }
+        }
+      }
+      
+      result[y * width + x] = sum / count;
+    }
+  }
+  
+  return result;
+}
+
+// ============================================================================
+// 🔟 ADAPTIVE THRESHOLD
+// ============================================================================
+function adaptiveThreshold(gray, width, height, blockSize) {
+  const result = new Uint8Array(width * height);
+  const radius = Math.floor(blockSize / 2);
+  const C = 3;
+  
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      let sum = 0;
+      let count = 0;
+      
+      for (let dy = -radius; dy <= radius; dy++) {
+        for (let dx = -radius; dx <= radius; dx++) {
+          const ny = y + dy;
+          const nx = x + dx;
+          
+          if (ny >= 0 && ny < height && nx >= 0 && nx < width) {
+            sum += gray[ny * width + nx];
+            count++;
+          }
+        }
+      }
+      
+      const mean = sum / count;
+      const pixel = gray[y * width + x];
+      
+      result[y * width + x] = pixel > (mean - C) ? 0 : 255;
+    }
+  }
+  
+  return result;
+}
+
+// ============================================================================
+// 1️⃣1️⃣ DETECT CONTOURS
+// ============================================================================
+function detectContours(binary, mask) {
+  const width = canvas.width;
+  const height = canvas.height;
+  
+  // Simple contour detection using connected components
+  const visited = new Uint8Array(width * height);
+  let contourCount = 0;
+  
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
       const idx = y * width + x;
       
-      // If we find a dark pixel that hasn't been visited
-      if (processed[idx] === 0 && !visited[idx]) {
-        // Use flood fill to measure the area
-        const area = floodFill(processed, visited, x, y, width, height);
+      if (binary[idx] === 255 && mask[idx] === 1 && visited[idx] === 0) {
+        const area = floodFill(binary, visited, mask, x, y, width, height);
         
-        // Filter by area (similar to Python code: 50 < area < 1000)
-        if (area > 50 && area < 1000) {
+        // Filter by area (same as Python: 20 < area < 2000)
+        if (area > 20 && area < 2000) {
           contourCount++;
         }
       }
@@ -204,179 +415,236 @@ function countContours(processed, width, height) {
   return contourCount;
 }
 
-// ============================================================
-// FLOOD FILL ALGORITHM
-// ============================================================
-function floodFill(processed, visited, startX, startY, width, height) {
+// ============================================================================
+// 1️⃣2️⃣ FLOOD FILL (for connected components)
+// ============================================================================
+function floodFill(binary, visited, mask, startX, startY, width, height) {
   const stack = [[startX, startY]];
   let area = 0;
-  const maxArea = 1000; // Prevent infinite loops
   
-  while (stack.length > 0 && area < maxArea) {
+  while (stack.length > 0) {
     const [x, y] = stack.pop();
     const idx = y * width + x;
     
-    // Boundary check
     if (x < 0 || x >= width || y < 0 || y >= height) continue;
+    if (visited[idx] === 1) continue;
+    if (binary[idx] !== 255) continue;
+    if (mask[idx] !== 1) continue;
     
-    // Already visited or not a dark pixel
-    if (visited[idx] || processed[idx] !== 0) continue;
-    
-    // Mark as visited
     visited[idx] = 1;
     area++;
     
-    // Add neighbors to stack (4-connectivity)
-    stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
+    // 4-connectivity
+    stack.push([x + 1, y]);
+    stack.push([x - 1, y]);
+    stack.push([x, y + 1]);
+    stack.push([x, y - 1]);
   }
   
   return area;
 }
 
-// ============================================================
-// UI UPDATE
-// ============================================================
-function updateProgress(frameCount, totalFrames, result) {
-  const progress = (frameCount / totalFrames) * 100;
+// ============================================================================
+// 1️⃣3️⃣ CALCULATE VARIANCE
+// ============================================================================
+function calculateVariance(imageData, mask) {
+  const data = imageData.data;
+  const pixels = [];
   
-  document.getElementById('progressFill').style.width = progress + '%';
-  document.getElementById('progressFill').textContent = Math.round(progress) + '%';
-  document.getElementById('currentFrame').textContent = frameCount;
-  document.getElementById('currentPhase').textContent = result.phase.toUpperCase();
-  document.getElementById('currentContours').textContent = result.contours;
+  // Collect LC pixels
+  for (let i = 0; i < mask.length; i++) {
+    if (mask[i] === 1) {
+      const gray = 0.299 * data[i * 4] + 0.587 * data[i * 4 + 1] + 0.114 * data[i * 4 + 2];
+      pixels.push(gray);
+    }
+  }
+  
+  // Calculate mean
+  const mean = pixels.reduce((a, b) => a + b, 0) / pixels.length;
+  
+  // Calculate variance
+  const variance = pixels.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) / pixels.length;
+  
+  return variance;
 }
 
-// ============================================================
-// FINISH ANALYSIS
-// ============================================================
-function finishAnalysis() {
+// ============================================================================
+// 1️⃣4️⃣ DISPLAY RESULTS
+// ============================================================================
+function displayResults() {
+  // Hide processing area
   document.getElementById('processingArea').style.display = 'none';
+  
+  // Show results section
   document.getElementById('resultsSection').style.display = 'block';
   
   // Calculate statistics
-  const cholestericFrames = analysisResults.filter(r => r.phase === 'cholesteric').length;
-  const isotropicFrames = analysisResults.filter(r => r.phase === 'isotropic').length;
-  const total = analysisResults.length;
+  const cholestericCount = analysisResults.filter(r => r.phase_contour === "CHOLESTERIC").length;
+  const isotropicCount = analysisResults.filter(r => r.phase_contour === "ISOTROPIC").length;
+  const totalCount = analysisResults.length;
   
-  // Update UI
-  document.getElementById('cholestericCount').textContent = cholestericFrames;
-  document.getElementById('isotropicCount').textContent = isotropicFrames;
-  document.getElementById('totalFrameCount').textContent = total;
-  document.getElementById('cholestericPercent').textContent = 
-    ((cholestericFrames / total) * 100).toFixed(1) + '%';
-  document.getElementById('isotropicPercent').textContent = 
-    ((isotropicFrames / total) * 100).toFixed(1) + '%';
+  const cholestericPercent = ((cholestericCount / totalCount) * 100).toFixed(1);
+  const isotropicPercent = ((isotropicCount / totalCount) * 100).toFixed(1);
   
-  // Create visualization chart
+  // Update summary cards
+  document.getElementById('cholestericCount').textContent = cholestericCount;
+  document.getElementById('cholestericPercent').textContent = cholestericPercent + '%';
+  document.getElementById('isotropicCount').textContent = isotropicCount;
+  document.getElementById('isotropicPercent').textContent = isotropicPercent + '%';
+  document.getElementById('totalFrameCount').textContent = totalCount;
+  
+  // Create chart
   createChart();
 }
 
-// ============================================================
-// CHART CREATION
-// ============================================================
+// ============================================================================
+// 1️⃣5️⃣ CREATE CHART
+// ============================================================================
 function createChart() {
-  // Destroy previous chart if exists
-  if (chartInstance) {
-    chartInstance.destroy();
-  }
-  
   const ctx = document.getElementById('phaseChart').getContext('2d');
   
-  chartInstance = new Chart(ctx, {
+  // Prepare data
+  const labels = analysisResults.map(r => r.timestamp_minutes.toFixed(2));
+  const contours = analysisResults.map(r => r.num_contours);
+  const variance = analysisResults.map(r => r.variance);
+  
+  // Destroy existing chart
+  if (myChart) {
+    myChart.destroy();
+  }
+  
+  // Create new chart
+  myChart = new Chart(ctx, {
     type: 'line',
     data: {
-      labels: analysisResults.map(r => r.time_sec.toFixed(1)),
-      datasets: [{
-        label: 'Jumlah Kontur',
-        data: analysisResults.map(r => r.contours),
-        borderColor: 'rgb(102, 126, 234)',
-        backgroundColor: 'rgba(102, 126, 234, 0.1)',
-        tension: 0.1,
-        pointRadius: 2,
-        pointBackgroundColor: analysisResults.map(r => 
-          r.phase === 'cholesteric' ? 'rgb(250, 112, 154)' : 'rgb(79, 172, 254)'
-        )
-      }]
+      labels: labels,
+      datasets: [
+        {
+          label: 'Jumlah Kontur',
+          data: contours,
+          borderColor: 'rgb(255, 99, 132)',
+          backgroundColor: 'rgba(255, 99, 132, 0.1)',
+          yAxisID: 'y',
+          tension: 0.1
+        },
+        {
+          label: 'Variance',
+          data: variance,
+          borderColor: 'rgb(54, 162, 235)',
+          backgroundColor: 'rgba(54, 162, 235, 0.1)',
+          yAxisID: 'y1',
+          tension: 0.1
+        }
+      ]
     },
     options: {
       responsive: true,
       maintainAspectRatio: true,
+      interaction: {
+        mode: 'index',
+        intersect: false,
+      },
       plugins: {
         title: {
           display: true,
-          text: 'Perubahan Fase: Jumlah Kontur vs Waktu',
-          font: { 
-            size: 16, 
-            weight: 'bold' 
+          text: 'Analisis Kontur dan Variance vs Waktu',
+          font: {
+            size: 16
           }
         },
-        legend: { 
-          display: true 
-        },
-        tooltip: {
-          callbacks: {
-            label: function(context) {
-              const result = analysisResults[context.dataIndex];
-              return [
-                `Kontur: ${result.contours}`,
-                `Fase: ${result.phase.toUpperCase()}`,
-                `Frame: ${result.frame}`
-              ];
-            }
-          }
+        legend: {
+          display: true,
+          position: 'top'
         }
       },
       scales: {
         x: {
-          title: { 
-            display: true, 
-            text: 'Waktu (detik)' 
-          },
-          ticks: { 
-            maxTicksLimit: 20 
+          display: true,
+          title: {
+            display: true,
+            text: 'Waktu (menit)'
           }
         },
         y: {
-          title: { 
-            display: true, 
-            text: 'Jumlah Kontur' 
+          type: 'linear',
+          display: true,
+          position: 'left',
+          title: {
+            display: true,
+            text: 'Jumlah Kontur'
+          }
+        },
+        y1: {
+          type: 'linear',
+          display: true,
+          position: 'right',
+          title: {
+            display: true,
+            text: 'Variance'
           },
-          beginAtZero: true
+          grid: {
+            drawOnChartArea: false,
+          }
         }
       }
     }
   });
 }
 
-// ============================================================
-// CSV DOWNLOAD
-// ============================================================
+// ============================================================================
+// 1️⃣6️⃣ DOWNLOAD CSV
+// ============================================================================
 function downloadCSV() {
-  // Create CSV header
-  let csv = 'Frame,Time(s),Contours,Phase\n';
+  // Create CSV content
+  let csv = 'frame_number,timestamp_seconds,timestamp_minutes,num_contours,phase_contour,variance,phase_variance\n';
   
-  // Add data rows
-  analysisResults.forEach(r => {
-    csv += `${r.frame},${r.time_sec.toFixed(2)},${r.contours},${r.phase}\n`;
+  analysisResults.forEach(result => {
+    csv += `${result.frame_number},${result.timestamp_seconds.toFixed(2)},${result.timestamp_minutes.toFixed(4)},${result.num_contours},${result.phase_contour},${result.variance.toFixed(2)},${result.phase_variance}\n`;
   });
   
-  // Create blob and download
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
+  // Download
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = window.URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `bplc_phase_analysis_${new Date().toISOString().slice(0,10)}.csv`;
-  document.body.appendChild(a);
+  a.download = 'bplc_analysis_results.csv';
   a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  window.URL.revokeObjectURL(url);
 }
 
-// ============================================================
-// RESET APPLICATION
-// ============================================================
-function resetApp() {
-  if (confirm('Apakah Anda yakin ingin menganalisis video baru? Data saat ini akan hilang.')) {
-    location.reload();
+// ============================================================================
+// 1️⃣7️⃣ RESET ANALYSIS
+// ============================================================================
+function resetAnalysis() {
+  // Reset variables
+  analysisResults = [];
+  videoInfo = {};
+  
+  // Reset UI
+  document.getElementById('videoFile').value = '';
+  document.getElementById('processBtn').disabled = true;
+  document.getElementById('processingArea').style.display = 'none';
+  document.getElementById('resultsSection').style.display = 'none';
+  document.getElementById('progressContainer').style.display = 'none';
+  document.getElementById('statusBox').style.display = 'none';
+  
+  // Clear video
+  videoElement.src = '';
+  
+  // Destroy chart
+  if (myChart) {
+    myChart.destroy();
+    myChart = null;
   }
+}
+
+// ============================================================================
+// 1️⃣8️⃣ HELPER: Wait for video seek
+// ============================================================================
+function waitForSeek() {
+  return new Promise((resolve) => {
+    videoElement.addEventListener('seeked', function() {
+      resolve();
+    }, { once: true });
+  });
 }
