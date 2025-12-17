@@ -13,9 +13,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
     
-    <!-- OpenCV.js dengan callback -->
+    <!-- OpenCV.js -->
     <script async src="https://docs.opencv.org/4.8.0/opencv.js" 
-            onload="console.log('✅ OpenCV.js loaded'); window.opencvLoaded = true;">
+            id="opencv-script">
     </script>
 </head>
 <body>
@@ -34,7 +34,7 @@
         </div>
     </div>
 
-    <!-- ANALYZER.JS HARUS DILOAD SETELAH SEMUA LIBRARY -->
+    <!-- ANALYZER.JS -->
     <script src="analyzer.js"></script>
     
     <script>
@@ -42,13 +42,16 @@
         let analyzerInstance = null;
         let opencvReady = false;
         let domReady = false;
+        let checkCount = 0;
+        const maxChecks = 100; // 50 detik timeout
         
         // Fungsi untuk inisialisasi
         function initializeApp() {
-            console.log('🚀 Initializing application...');
+            console.log('🚀 Attempting to initialize application...');
             console.log('📦 OpenCV ready:', opencvReady);
             console.log('📦 DOM ready:', domReady);
             console.log('📦 VideoAnalyzer available:', typeof VideoAnalyzer);
+            console.log('📦 cv object:', typeof cv);
             
             if (opencvReady && domReady && typeof VideoAnalyzer !== 'undefined') {
                 try {
@@ -56,11 +59,12 @@
                     const loadingOverlay = document.getElementById('opencvLoading');
                     if (loadingOverlay) {
                         loadingOverlay.style.display = 'none';
+                        console.log('✅ Loading overlay hidden');
                     }
                     
                     // Create analyzer instance
                     analyzerInstance = new VideoAnalyzer();
-                    console.log('✅ VideoAnalyzer instance created:', analyzerInstance);
+                    console.log('✅ VideoAnalyzer instance created');
                     
                     // Initialize
                     if (analyzerInstance && typeof analyzerInstance.init === 'function') {
@@ -68,6 +72,8 @@
                         console.log('🎉 Application initialized successfully!');
                     } else {
                         console.error('❌ analyzerInstance.init is not a function');
+                        console.log('analyzerInstance:', analyzerInstance);
+                        console.log('init function:', analyzerInstance ? analyzerInstance.init : 'undefined');
                     }
                     
                 } catch (error) {
@@ -79,37 +85,120 @@
             }
         }
         
-        // Check if OpenCV is loaded
+        // Check if OpenCV is loaded - VERSION YANG BENAR
         function checkOpenCV() {
-            if (typeof cv !== 'undefined' && cv.getBuildInformation) {
-                console.log('✅ OpenCV detected, version:', cv.getVersionString());
+            checkCount++;
+            
+            // Update progress bar
+            const progressPercent = Math.min(100, (checkCount / maxChecks) * 100);
+            const progressBar = document.querySelector('.progress-bar');
+            if (progressBar) {
+                progressBar.style.width = progressPercent + '%';
+            }
+            
+            document.getElementById('opencvProgress').textContent = 
+                `Loading... ${Math.round(progressPercent)}% (${checkCount}/${maxChecks})`;
+            
+            // Check for OpenCV in different ways
+            if (typeof cv !== 'undefined') {
+                console.log('✅ OpenCV object detected');
+                
+                // Check for version info in different ways
+                let versionInfo = 'OpenCV.js loaded';
+                
+                try {
+                    // Try different methods to get version
+                    if (cv.getBuildInformation) {
+                        const buildInfo = cv.getBuildInformation();
+                        console.log('OpenCV build info available');
+                        versionInfo = 'OpenCV WebAssembly';
+                    } else if (cv.Mat) {
+                        console.log('cv.Mat constructor available');
+                        versionInfo = 'OpenCV WebAssembly (Mat available)';
+                    }
+                } catch (e) {
+                    console.log('Could not get detailed OpenCV info:', e.message);
+                }
+                
+                document.getElementById('opencvProgress').textContent = versionInfo;
                 opencvReady = true;
-                document.getElementById('opencvProgress').textContent = 'OpenCV loaded!';
                 initializeApp();
-            } else {
-                // Try again in 500ms
+                return;
+            }
+            
+            // Continue checking if not loaded yet
+            if (checkCount < maxChecks) {
                 setTimeout(checkOpenCV, 500);
+            } else {
+                console.error('❌ OpenCV loading timeout');
+                document.getElementById('opencvProgress').textContent = 
+                    'Failed to load OpenCV. Please refresh the page.';
+                
+                // Try alternative OpenCV source
+                setTimeout(loadAlternativeOpenCV, 2000);
             }
         }
         
-        // Start checking for OpenCV
-        setTimeout(checkOpenCV, 1000);
+        // Alternative OpenCV source
+        function loadAlternativeOpenCV() {
+            console.log('🔄 Trying alternative OpenCV source...');
+            document.getElementById('opencvProgress').textContent = 
+                'Trying alternative OpenCV source...';
+            
+            const altScript = document.createElement('script');
+            altScript.src = 'https://cdn.jsdelivr.net/npm/opencv.js@4.8.0/opencv.js';
+            altScript.onload = function() {
+                console.log('✅ Alternative OpenCV loaded');
+                opencvReady = true;
+                initializeApp();
+            };
+            altScript.onerror = function() {
+                console.error('❌ Both OpenCV sources failed');
+                document.getElementById('opencvProgress').textContent = 
+                    'OpenCV failed to load. Please check your internet connection.';
+            };
+            document.head.appendChild(altScript);
+        }
         
-        // Wait for DOM to be ready
+        // Start checking for OpenCV
         document.addEventListener('DOMContentLoaded', function() {
             console.log('✅ DOM fully loaded');
             domReady = true;
-            initializeApp();
+            
+            // Start OpenCV check after DOM is ready
+            setTimeout(checkOpenCV, 1000);
         });
         
-        // Fallback timeout
-        setTimeout(function() {
-            if (!opencvReady) {
-                console.warn('⚠️ OpenCV loading timeout');
-                document.getElementById('opencvProgress').textContent = 
-                    'Taking longer than expected. Please refresh or check connection.';
+        // Manual initialization button (fallback)
+        function manualInit() {
+            console.log('🔧 Manual initialization requested');
+            if (typeof VideoAnalyzer !== 'undefined') {
+                analyzerInstance = new VideoAnalyzer();
+                analyzerInstance.init();
+                document.getElementById('opencvLoading').style.display = 'none';
+                alert('Application initialized manually!');
+            } else {
+                alert('VideoAnalyzer not available. Please check console.');
             }
-        }, 30000);
+        }
+        
+        // Add manual init button to loading screen
+        window.onload = function() {
+            const loadingContent = document.querySelector('.loading-content');
+            if (loadingContent) {
+                const manualBtn = document.createElement('button');
+                manualBtn.textContent = 'Manual Initialize';
+                manualBtn.style.marginTop = '20px';
+                manualBtn.style.padding = '10px 20px';
+                manualBtn.style.background = '#4361ee';
+                manualBtn.style.color = 'white';
+                manualBtn.style.border = 'none';
+                manualBtn.style.borderRadius = '5px';
+                manualBtn.style.cursor = 'pointer';
+                manualBtn.onclick = manualInit;
+                loadingContent.appendChild(manualBtn);
+            }
+        };
     </script>
 </body>
 </html>
